@@ -35,11 +35,11 @@ social:
   # Change to your full name.
   # It will be displayed as the default author of the posts and the copyright owner in the Footer
   name: wkltueserc20
-  email: # change to your email address
+  email: 
   links:
     # The first element serves as the copyright owner's link
-    - https://github.com/wkltueserc20 # change to your GitHub homepage
-    - https://github.com/wkltueserc20 # change to your GitHub homepage
+    - https://github.com/wkltueserc20
+    - https://github.com/wkltueserc20
     # Uncomment below to add more social links
     # - https://www.facebook.com/username
     # - https://www.linkedin.com/in/username
