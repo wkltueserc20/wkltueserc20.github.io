@@ -212,6 +212,7 @@ function App() {
         hour: '2-digit',
         minute: '2-digit',
       })} ~ ${new Date(et).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
+      updatedAt: Date.now(),
     };
     const newRecords = [newRec, ...records].sort((a, b) => b.timestamp - a.timestamp);
     addRecord(newRec);
@@ -248,6 +249,7 @@ function App() {
       amount: fAm,
       weight: recordData.weight,
       height: recordData.height,
+      updatedAt: Date.now(),
     };
 
     if (recordData.type === 'feeding') {

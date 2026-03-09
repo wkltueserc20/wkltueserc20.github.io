@@ -16,9 +16,9 @@ export const parseCSVLine = (t: string) => {
 };
 
 export const generateCSVString = (records: Record[]) => {
-  let csv = '\uFEFFID,時間,類別,奶種,數值,狀態,體重,身高,開始時間戳,結束時間戳,備註\n';
+  let csv = '\uFEFFID,時間,類別,奶種,數值,狀態,體重,身高,開始時間戳,結束時間戳,備註,最後修改時間戳\n';
   records.forEach((r) => {
-    csv += `"${r.id}","${r.time}","${r.type}","${r.milkType || ''}","${r.amount || ''}","","${r.weight || ''}","${r.height || ''}","${r.timestamp}","${r.endTimestamp || ''}","${r.note || ''}"\n`;
+    csv += `"${r.id}","${r.time}","${r.type}","${r.milkType || ''}","${r.amount || ''}","","${r.weight || ''}","${r.height || ''}","${r.timestamp}","${r.endTimestamp || ''}","${r.note || ''}","${r.updatedAt || 0}"\n`;
   });
   return csv;
 };
@@ -42,6 +42,7 @@ export const csvToRecords = (csvContent: string): Record[] => {
       height: c[7] ? Number(c[7]) : undefined,
       endTimestamp: c[9] ? Number(c[9]) : undefined,
       note: c[10],
+      updatedAt: c[11] ? Number(c[11]) : 0,
     });
   });
   return records;

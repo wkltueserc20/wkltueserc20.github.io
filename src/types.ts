@@ -13,6 +13,7 @@ export interface Record {
   weight?: number;
   height?: number;
   note?: string;
+  updatedAt?: number;
 }
 
 export interface BabyInfo {
