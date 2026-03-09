@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import type { BabyInfo, Record } from '../types';
 import { generateCSVString, csvToRecords } from '../utils/csvUtils';
 import { mergeRecords } from '../utils/mergeUtils';
@@ -7,10 +7,13 @@ export const useSync = (babyInfo: BabyInfo | null, showToast: (msg: string) => v
   const [accessToken, setAccessToken] = useState<string | null>(() => localStorage.getItem('google-access-token'));
   const [tokenExpire, setTokenExpire] = useState<number>(() => Number(localStorage.getItem('google-token-expire') || 0));
   const [isSyncing, setIsSyncing] = useState(false);
+  const [syncError, setSyncError] = useState<string | null>(null);
+  const pendingSyncRef = useRef<Record[] | null>(null);
 
   const updateToken = useCallback((token: string, expiresAt: number) => {
     setAccessToken(token);
     setTokenExpire(expiresAt);
+    setSyncError(null);
     localStorage.setItem('google-access-token', token);
     localStorage.setItem('google-token-expire', expiresAt.toString());
   }, []);
@@ -76,7 +79,6 @@ export const useSync = (babyInfo: BabyInfo | null, showToast: (msg: string) => v
           console.error("Auth Error:", err);
         }
       });
-      // 核心優化：除非是使用者點擊按鈕 (forceSelect)，否則不強制顯示帳號選擇器
       client.requestAccessToken({ prompt: forceSelect ? 'select_account' : '' });
     } catch (err) {
       if (forceSelect) showToast("Google Auth 初始化失敗");
@@ -92,23 +94,23 @@ export const useSync = (babyInfo: BabyInfo | null, showToast: (msg: string) => v
     const dateStr = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
     const fileName = `baby_records_${dateStr}.csv`;
 
-    try {
-      const folderQuery = babyInfo?.googleFolderId ? ` and '${babyInfo.googleFolderId}' in parents` : '';
-      const searchRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=name='${fileName}' and trashed=false${folderQuery}`, {
+    const folderQuery = babyInfo?.googleFolderId ? ` and '${babyInfo.googleFolderId}' in parents` : '';
+    const searchRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=name='${fileName}' and trashed=false${folderQuery}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    
+    if (!searchRes.ok) throw new Error(`Search Failed: ${searchRes.status}`);
+    
+    const searchData = await searchRes.json();
+    const existingFile = searchData.files?.[0];
+
+    if (existingFile) {
+      const fileRes = await fetch(`https://www.googleapis.com/drive/v3/files/${existingFile.id}?alt=media`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      const searchData = await searchRes.json();
-      const existingFile = searchData.files?.[0];
-
-      if (existingFile) {
-        const fileRes = await fetch(`https://www.googleapis.com/drive/v3/files/${existingFile.id}?alt=media`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        const content = await fileRes.text();
-        return csvToRecords(content);
-      }
-    } catch (err) {
-      console.error("Pull Records Error:", err);
+      if (!fileRes.ok) throw new Error(`Download Failed: ${fileRes.status}`);
+      const content = await fileRes.text();
+      return csvToRecords(content);
     }
     return [];
   }, [accessToken, tokenExpire, babyInfo]);
@@ -126,49 +128,64 @@ export const useSync = (babyInfo: BabyInfo | null, showToast: (msg: string) => v
     const fileName = `baby_records_${dateStr}.csv`;
     const csv = generateCSVString(data);
 
-    try {
-      const folderQuery = babyInfo?.googleFolderId ? ` and '${babyInfo.googleFolderId}' in parents` : '';
-      const searchRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=name='${fileName}' and trashed=false${folderQuery}`, {
-        headers: { Authorization: `Bearer ${token}` }
+    const folderQuery = babyInfo?.googleFolderId ? ` and '${babyInfo.googleFolderId}' in parents` : '';
+    const searchRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=name='${fileName}' and trashed=false${folderQuery}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    
+    if (!searchRes.ok) throw new Error(`Sync Search Failed: ${searchRes.status}`);
+    
+    const searchData = await searchRes.json();
+    const existingFile = searchData.files?.[0];
+
+    const metadata: any = { name: fileName, mimeType: 'text/csv' };
+    if (babyInfo?.googleFolderId && !existingFile) metadata.parents = [babyInfo.googleFolderId];
+
+    const form = new FormData();
+    form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+    form.append('file', new Blob([csv], { type: 'text/csv' }));
+
+    let res;
+    if (existingFile) {
+      res = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${existingFile.id}?uploadType=multipart`, {
+        method: 'PATCH', headers: { Authorization: `Bearer ${token}` }, body: form
       });
-      const searchData = await searchRes.json();
-      const existingFile = searchData.files?.[0];
-
-      const metadata: any = { name: fileName, mimeType: 'text/csv' };
-      if (babyInfo?.googleFolderId && !existingFile) metadata.parents = [babyInfo.googleFolderId];
-
-      const form = new FormData();
-      form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
-      form.append('file', new Blob([csv], { type: 'text/csv' }));
-
-      if (existingFile) {
-        await fetch(`https://www.googleapis.com/upload/drive/v3/files/${existingFile.id}?uploadType=multipart`, {
-          method: 'PATCH', headers: { Authorization: `Bearer ${token}` }, body: form
-        });
-      } else {
-        await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
-          method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form
-        });
-      }
-      console.log("☁️ Google Drive 同步完成");
-    } catch (err) { console.error("Drive Sync Error:", err); }
+    } else {
+      res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+        method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form
+      });
+    }
+    
+    if (!res.ok) throw new Error(`Upload Failed: ${res.status}`);
+    console.log("☁️ Google Drive 同步完成");
   }, [accessToken, tokenExpire, babyInfo, handleGoogleLogin]);
 
   const fullSync = useCallback(async (localRecords: Record[], onSyncComplete: (merged: Record[]) => void, options?: { silent?: boolean }) => {
-    if (isSyncing) return;
+    if (isSyncing) {
+      pendingSyncRef.current = localRecords;
+      return;
+    }
+    
     const isSilent = options?.silent || false;
+    setSyncError(null);
     
     if (!accessToken || Date.now() > tokenExpire) {
-      // For background sync, we don't want to pop up login if it's silent
       if (isSilent) return; 
-
       handleGoogleLogin(async (newToken) => {
         setIsSyncing(true);
-        const remote = await pullRecordsFromDrive(newToken);
-        const merged = mergeRecords(localRecords, remote);
-        onSyncComplete(merged);
-        await syncToDriveDirect(merged, newToken);
-        setIsSyncing(false);
+        try {
+          const remote = await pullRecordsFromDrive(newToken);
+          const merged = mergeRecords(localRecords, remote);
+          onSyncComplete(merged);
+          await syncToDriveDirect(merged, newToken);
+        } catch (e) {
+          console.error("Full Sync Login Error:", e);
+          setSyncError("auth_failed");
+          showToast("同步失敗 ❌");
+        } finally {
+          setIsSyncing(false);
+          checkPending();
+        }
       });
       return;
     }
@@ -182,15 +199,26 @@ export const useSync = (babyInfo: BabyInfo | null, showToast: (msg: string) => v
       if (!isSilent) showToast("同步完成 ✅");
     } catch (err) {
       console.error("Full Sync Error:", err);
+      setSyncError("sync_failed");
       if (!isSilent) showToast("同步失敗 ❌");
     } finally {
       setIsSyncing(false);
+      checkPending();
     }
-  }, [accessToken, tokenExpire, handleGoogleLogin, pullRecordsFromDrive, syncToDriveDirect, showToast]);
+
+    function checkPending() {
+      if (pendingSyncRef.current) {
+        const nextRecords = pendingSyncRef.current;
+        pendingSyncRef.current = null;
+        fullSync(nextRecords, onSyncComplete, options);
+      }
+    }
+  }, [accessToken, tokenExpire, handleGoogleLogin, pullRecordsFromDrive, syncToDriveDirect, showToast, isSyncing]);
 
   return {
     accessToken,
     isSyncing,
+    syncError,
     sendLineAction,
     callGasApi,
     cancelGasSchedule,

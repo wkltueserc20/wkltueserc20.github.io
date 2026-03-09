@@ -50,6 +50,7 @@ function App() {
   const {
     accessToken,
     isSyncing,
+    syncError,
     sendLineAction,
     callGasApi,
     cancelGasSchedule,
@@ -476,7 +477,7 @@ function App() {
             <div className="bg-slate-900 text-white w-9 h-9 rounded-2xl flex items-center justify-center text-[11px] uppercase shadow-xl font-black">
               {currentTab.charAt(0)}
             </div>
-            <SyncStatus isSyncing={isSyncing} />
+            <SyncStatus isSyncing={isSyncing} syncError={syncError} />
           </div>
         </div>
       </header>
