@@ -69,11 +69,13 @@ function App() {
     else localStorage.removeItem('baby-sleep-start');
   }, [sleepStartTime]);
 
+  const initialSyncRef = useRef(false);
   useEffect(() => {
-    if (accessToken) {
+    if (accessToken && !initialSyncRef.current) {
+      initialSyncRef.current = true;
       fullSync(records, setAllRecords);
     }
-  }, [accessToken, fullSync, setAllRecords]);
+  }, [accessToken, fullSync, setAllRecords, records]);
 
   const recordsRef = useRef(records);
   useEffect(() => { recordsRef.current = records; }, [records]);

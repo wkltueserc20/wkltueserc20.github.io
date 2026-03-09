@@ -8,6 +8,9 @@ export const useSync = (babyInfo: BabyInfo | null, showToast: (msg: string) => v
   const [tokenExpire, setTokenExpire] = useState<number>(() => Number(localStorage.getItem('google-token-expire') || 0));
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
+  
+  // 使用 Ref 追蹤同步狀態，避免觸發 useCallback 重造
+  const syncingRef = useRef(false);
   const pendingSyncRef = useRef<Record[] | null>(null);
 
   const updateToken = useCallback((token: string, expiresAt: number) => {
@@ -94,23 +97,28 @@ export const useSync = (babyInfo: BabyInfo | null, showToast: (msg: string) => v
     const dateStr = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
     const fileName = `baby_records_${dateStr}.csv`;
 
-    const folderQuery = babyInfo?.googleFolderId ? ` and '${babyInfo.googleFolderId}' in parents` : '';
-    const searchRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=name='${fileName}' and trashed=false${folderQuery}`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    
-    if (!searchRes.ok) throw new Error(`Search Failed: ${searchRes.status}`);
-    
-    const searchData = await searchRes.json();
-    const existingFile = searchData.files?.[0];
-
-    if (existingFile) {
-      const fileRes = await fetch(`https://www.googleapis.com/drive/v3/files/${existingFile.id}?alt=media`, {
+    try {
+      const folderQuery = babyInfo?.googleFolderId ? ` and '${babyInfo.googleFolderId}' in parents` : '';
+      const searchRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=name='${fileName}' and trashed=false${folderQuery}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      if (!fileRes.ok) throw new Error(`Download Failed: ${fileRes.status}`);
-      const content = await fileRes.text();
-      return csvToRecords(content);
+      
+      if (!searchRes.ok) throw new Error(`Search Failed: ${searchRes.status}`);
+      
+      const searchData = await searchRes.json();
+      const existingFile = searchData.files?.[0];
+
+      if (existingFile) {
+        const fileRes = await fetch(`https://www.googleapis.com/drive/v3/files/${existingFile.id}?alt=media`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (!fileRes.ok) throw new Error(`Download Failed: ${fileRes.status}`);
+        const content = await fileRes.text();
+        return csvToRecords(content);
+      }
+    } catch (err) {
+      console.error("Pull Records Error:", err);
+      throw err; // Propagate to fullSync
     }
     return [];
   }, [accessToken, tokenExpire, babyInfo]);
@@ -128,40 +136,46 @@ export const useSync = (babyInfo: BabyInfo | null, showToast: (msg: string) => v
     const fileName = `baby_records_${dateStr}.csv`;
     const csv = generateCSVString(data);
 
-    const folderQuery = babyInfo?.googleFolderId ? ` and '${babyInfo.googleFolderId}' in parents` : '';
-    const searchRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=name='${fileName}' and trashed=false${folderQuery}`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    
-    if (!searchRes.ok) throw new Error(`Sync Search Failed: ${searchRes.status}`);
-    
-    const searchData = await searchRes.json();
-    const existingFile = searchData.files?.[0];
-
-    const metadata: any = { name: fileName, mimeType: 'text/csv' };
-    if (babyInfo?.googleFolderId && !existingFile) metadata.parents = [babyInfo.googleFolderId];
-
-    const form = new FormData();
-    form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
-    form.append('file', new Blob([csv], { type: 'text/csv' }));
-
-    let res;
-    if (existingFile) {
-      res = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${existingFile.id}?uploadType=multipart`, {
-        method: 'PATCH', headers: { Authorization: `Bearer ${token}` }, body: form
+    try {
+      const folderQuery = babyInfo?.googleFolderId ? ` and '${babyInfo.googleFolderId}' in parents` : '';
+      const searchRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=name='${fileName}' and trashed=false${folderQuery}`, {
+        headers: { Authorization: `Bearer ${token}` }
       });
-    } else {
-      res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
-        method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form
-      });
+      
+      if (!searchRes.ok) throw new Error(`Sync Search Failed: ${searchRes.status}`);
+      
+      const searchData = await searchRes.json();
+      const existingFile = searchData.files?.[0];
+
+      const metadata: any = { name: fileName, mimeType: 'text/csv' };
+      if (babyInfo?.googleFolderId && !existingFile) metadata.parents = [babyInfo.googleFolderId];
+
+      const form = new FormData();
+      form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+      form.append('file', new Blob([csv], { type: 'text/csv' }));
+
+      let res;
+      if (existingFile) {
+        res = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${existingFile.id}?uploadType=multipart`, {
+          method: 'PATCH', headers: { Authorization: `Bearer ${token}` }, body: form
+        });
+      } else {
+        res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+          method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form
+        });
+      }
+      
+      if (!res.ok) throw new Error(`Upload Failed: ${res.status}`);
+      console.log("☁️ Google Drive 同步完成");
+    } catch (err) { 
+      console.error("Drive Sync Error:", err);
+      throw err; 
     }
-    
-    if (!res.ok) throw new Error(`Upload Failed: ${res.status}`);
-    console.log("☁️ Google Drive 同步完成");
   }, [accessToken, tokenExpire, babyInfo, handleGoogleLogin]);
 
   const fullSync = useCallback(async (localRecords: Record[], onSyncComplete: (merged: Record[]) => void, options?: { silent?: boolean }) => {
-    if (isSyncing) {
+    // 關鍵修正：使用 Ref 檢查防止迴圈，不再依賴 isSyncing 狀態作為 dependency
+    if (syncingRef.current) {
       pendingSyncRef.current = localRecords;
       return;
     }
@@ -172,6 +186,7 @@ export const useSync = (babyInfo: BabyInfo | null, showToast: (msg: string) => v
     if (!accessToken || Date.now() > tokenExpire) {
       if (isSilent) return; 
       handleGoogleLogin(async (newToken) => {
+        syncingRef.current = true;
         setIsSyncing(true);
         try {
           const remote = await pullRecordsFromDrive(newToken);
@@ -183,6 +198,7 @@ export const useSync = (babyInfo: BabyInfo | null, showToast: (msg: string) => v
           setSyncError("auth_failed");
           showToast("同步失敗 ❌");
         } finally {
+          syncingRef.current = false;
           setIsSyncing(false);
           checkPending();
         }
@@ -190,6 +206,7 @@ export const useSync = (babyInfo: BabyInfo | null, showToast: (msg: string) => v
       return;
     }
 
+    syncingRef.current = true;
     setIsSyncing(true);
     try {
       const remote = await pullRecordsFromDrive();
@@ -202,6 +219,7 @@ export const useSync = (babyInfo: BabyInfo | null, showToast: (msg: string) => v
       setSyncError("sync_failed");
       if (!isSilent) showToast("同步失敗 ❌");
     } finally {
+      syncingRef.current = false;
       setIsSyncing(false);
       checkPending();
     }
@@ -213,7 +231,8 @@ export const useSync = (babyInfo: BabyInfo | null, showToast: (msg: string) => v
         fullSync(nextRecords, onSyncComplete, options);
       }
     }
-  }, [accessToken, tokenExpire, handleGoogleLogin, pullRecordsFromDrive, syncToDriveDirect, showToast, isSyncing]);
+    // 依賴項移除 isSyncing 避免參照迴圈
+  }, [accessToken, tokenExpire, handleGoogleLogin, pullRecordsFromDrive, syncToDriveDirect, showToast]);
 
   return {
     accessToken,
