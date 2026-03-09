@@ -48,11 +48,12 @@ function App() {
 
   const {
     accessToken,
+    isSyncing,
     sendLineAction,
     callGasApi,
     cancelGasSchedule,
     handleGoogleLogin,
-    syncToDriveDirect,
+    fullSync,
   } = useSync(babyInfo, showToast);
 
   // --- Effects ---
@@ -65,6 +66,12 @@ function App() {
     if (sleepStartTime) localStorage.setItem('baby-sleep-start', sleepStartTime.toString());
     else localStorage.removeItem('baby-sleep-start');
   }, [sleepStartTime]);
+
+  useEffect(() => {
+    if (accessToken) {
+      fullSync(records, setAllRecords);
+    }
+  }, [accessToken, fullSync, setAllRecords]); // records dependency is handled by recordsRef internally in hooks usually, but here we use initial records
 
   // --- Derived Data (Stats) ---
   const stats = useMemo(() => {
@@ -184,7 +191,7 @@ function App() {
     addRecord(newRec);
     setSleepStartTime(null);
     showToast('紀錄成功 ✨');
-    syncToDriveDirect(newRecords);
+    fullSync(newRecords, setAllRecords);
   };
 
   const handleSaveRecord = (recordData: any) => {
@@ -243,7 +250,7 @@ function App() {
       updatedRecords = [newRec, ...records];
       showToast('新增成功 ✨');
     }
-    syncToDriveDirect(updatedRecords);
+    fullSync(updatedRecords, setAllRecords);
   };
 
   const handleDeleteRecord = (id: string) => {
@@ -252,7 +259,7 @@ function App() {
       const newRecs = records.filter((r) => r.id !== id);
       deleteRecord(id);
       showToast('已刪除 🗑️');
-      syncToDriveDirect(newRecs);
+      fullSync(newRecs, setAllRecords);
       if (target?.type === 'feeding') cancelGasSchedule();
     }
   };
@@ -645,6 +652,8 @@ function App() {
             records={records}
             setRecords={setAllRecords}
             accessToken={accessToken}
+            isSyncing={isSyncing}
+            onFullSync={() => fullSync(records, setAllRecords)}
             handleGoogleLogin={handleGoogleLogin}
             handleExportCSV={handleExportCSVLocal}
             handleImportCSV={handleImportCSVLocal}

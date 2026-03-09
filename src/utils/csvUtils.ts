@@ -22,3 +22,27 @@ export const generateCSVString = (records: Record[]) => {
   });
   return csv;
 };
+
+export const csvToRecords = (csvContent: string): Record[] => {
+  const lines = csvContent.split('\n').filter((l) => l.trim() !== '').slice(1);
+  const records: Record[] = [];
+  lines.forEach((l) => {
+    const c = parseCSVLine(l.trim());
+    if (c.length < 11) return;
+    const ts = Number(c[8]);
+    if (isNaN(ts)) return;
+    records.push({
+      id: c[0] || crypto.randomUUID(),
+      time: c[1],
+      timestamp: ts,
+      type: c[2] as any,
+      milkType: c[3] as any,
+      amount: c[4] ? Number(c[4]) : undefined,
+      weight: c[6] ? Number(c[6]) : undefined,
+      height: c[7] ? Number(c[7]) : undefined,
+      endTimestamp: c[9] ? Number(c[9]) : undefined,
+      note: c[10],
+    });
+  });
+  return records;
+};

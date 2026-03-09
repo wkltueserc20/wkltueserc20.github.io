@@ -1,10 +1,12 @@
 import { useState, useCallback } from 'react';
 import type { BabyInfo, Record } from '../types';
-import { generateCSVString } from '../utils/csvUtils';
+import { generateCSVString, csvToRecords } from '../utils/csvUtils';
+import { mergeRecords } from '../utils/mergeUtils';
 
 export const useSync = (babyInfo: BabyInfo | null, showToast: (msg: string) => void) => {
   const [accessToken, setAccessToken] = useState<string | null>(() => localStorage.getItem('google-access-token'));
   const [tokenExpire, setTokenExpire] = useState<number>(() => Number(localStorage.getItem('google-token-expire') || 0));
+  const [isSyncing, setIsSyncing] = useState(false);
 
   const updateToken = useCallback((token: string, expiresAt: number) => {
     setAccessToken(token);
@@ -69,11 +71,39 @@ export const useSync = (babyInfo: BabyInfo | null, showToast: (msg: string) => v
     client.requestAccessToken({ prompt: '' });
   }, [babyInfo, showToast, updateToken]);
 
+  const pullRecordsFromDrive = useCallback(async (overrideToken?: string): Promise<Record[]> => {
+    const token = overrideToken || accessToken;
+    if (!token || Date.now() > tokenExpire) return [];
+
+    const d = new Date();
+    const dateStr = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
+    const fileName = `baby_records_${dateStr}.csv`;
+
+    try {
+      const folderQuery = babyInfo?.googleFolderId ? ` and '${babyInfo.googleFolderId}' in parents` : '';
+      const searchRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=name='${fileName}' and trashed=false${folderQuery}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const searchData = await searchRes.json();
+      const existingFile = searchData.files?.[0];
+
+      if (existingFile) {
+        const fileRes = await fetch(`https://www.googleapis.com/drive/v3/files/${existingFile.id}?alt=media`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const content = await fileRes.text();
+        return csvToRecords(content);
+      }
+    } catch (err) {
+      console.error("Pull Records Error:", err);
+    }
+    return [];
+  }, [accessToken, tokenExpire, babyInfo]);
+
   const syncToDriveDirect = useCallback(async (data: Record[], overrideToken?: string) => {
     const token = overrideToken || accessToken;
     if (!token || Date.now() > tokenExpire) {
       if (overrideToken) return;
-      console.log("☁️ 授權過期，嘗試自動續約...");
       handleGoogleLogin((newToken: string) => syncToDriveDirect(data, newToken));
       return;
     }
@@ -92,9 +122,7 @@ export const useSync = (babyInfo: BabyInfo | null, showToast: (msg: string) => v
       const existingFile = searchData.files?.[0];
 
       const metadata: any = { name: fileName, mimeType: 'text/csv' };
-      if (babyInfo?.googleFolderId && !existingFile) {
-        metadata.parents = [babyInfo.googleFolderId];
-      }
+      if (babyInfo?.googleFolderId && !existingFile) metadata.parents = [babyInfo.googleFolderId];
 
       const form = new FormData();
       form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
@@ -113,12 +141,41 @@ export const useSync = (babyInfo: BabyInfo | null, showToast: (msg: string) => v
     } catch (err) { console.error("Drive Sync Error:", err); }
   }, [accessToken, tokenExpire, babyInfo, handleGoogleLogin]);
 
+  const fullSync = useCallback(async (localRecords: Record[], onSyncComplete: (merged: Record[]) => void) => {
+    if (!accessToken || Date.now() > tokenExpire) {
+      handleGoogleLogin(async (newToken) => {
+        setIsSyncing(true);
+        const remote = await pullRecordsFromDrive(newToken);
+        const merged = mergeRecords(localRecords, remote);
+        onSyncComplete(merged);
+        await syncToDriveDirect(merged, newToken);
+        setIsSyncing(false);
+      });
+      return;
+    }
+
+    setIsSyncing(true);
+    try {
+      const remote = await pullRecordsFromDrive();
+      const merged = mergeRecords(localRecords, remote);
+      onSyncComplete(merged);
+      await syncToDriveDirect(merged);
+    } catch (err) {
+      console.error("Full Sync Error:", err);
+    } finally {
+      setIsSyncing(false);
+    }
+  }, [accessToken, tokenExpire, handleGoogleLogin, pullRecordsFromDrive, syncToDriveDirect]);
+
   return {
     accessToken,
+    isSyncing,
     sendLineAction,
     callGasApi,
     cancelGasSchedule,
     handleGoogleLogin,
-    syncToDriveDirect
+    syncToDriveDirect,
+    pullRecordsFromDrive,
+    fullSync
   };
 };

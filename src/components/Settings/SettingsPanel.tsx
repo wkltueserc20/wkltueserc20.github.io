@@ -7,6 +7,8 @@ interface SettingsPanelProps {
   records: Record[];
   setRecords: (records: Record[]) => void;
   accessToken: string | null;
+  isSyncing?: boolean;
+  onFullSync?: () => void;
   handleGoogleLogin: () => void;
   handleExportCSV: () => void;
   handleImportCSV: (e: React.ChangeEvent<HTMLInputElement>) => void;
@@ -21,6 +23,8 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   records,
   setRecords,
   accessToken,
+  isSyncing,
+  onFullSync,
   handleGoogleLogin,
   handleExportCSV,
   handleImportCSV,
@@ -162,8 +166,18 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
           {accessToken ? '✅ 已連結 Google 雲端' : '🔗 連結 Google 雲端帳戶'}
         </button>
         {accessToken && (
-          <div className="text-[9px] text-slate-400 text-center uppercase tracking-widest animate-pulse">
-            自動同步已啟動，每次儲存將自動更新雲端 CSV
+          <div className="space-y-4">
+            <button
+              onClick={onFullSync}
+              disabled={isSyncing}
+              className="w-full py-4 bg-white border-2 border-indigo-100 text-indigo-600 rounded-2xl font-black text-xs uppercase flex items-center justify-center gap-2 active:scale-95 transition-all disabled:opacity-50"
+            >
+              <span className={isSyncing ? 'animate-spin' : ''}>🔄</span>
+              {isSyncing ? '同步中...' : '立即雙向同步'}
+            </button>
+            <div className="text-[9px] text-slate-400 text-center uppercase tracking-widest animate-pulse">
+              自動同步已啟動，每次儲存將自動更新雲端 CSV
+            </div>
           </div>
         )}
       </div>
