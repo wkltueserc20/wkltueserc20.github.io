@@ -713,22 +713,24 @@ function App() {
 
               <section className="space-y-3">
                 <h3 className="text-sm font-black bg-emerald-50 text-emerald-600 px-4 py-2 rounded-xl inline-block">
-                  ☁️ Google Drive 自動備份
+                  ☁️ 雙向同步與多人協作
                 </h3>
                 <p className="text-xs text-slate-600 leading-relaxed">
-                  每次<b>新增、修改或刪除</b>任何紀錄，系統都會自動同步至您的 Google 雲端硬碟。
-                  <br />• <b>無感續約：</b> 授權過期時，儲存後點選帳戶頭像即可快速續約。
-                  <br />• <b>定向儲存：</b> 可在設定中指定資料夾 ID，保持檔案整齊。
+                  系統透過 Google Drive 實現<b>多設備即時聯動</b>。
+                  <br />• <b>全自動同步：</b> 當您回到 App 或網路恢復時，系統會自動執行靜默同步。
+                  <br />• <b>智慧合併：</b> 不同設備的紀錄會自動彙整，不會互相覆蓋。
+                  <br />• <b>狀態指標：</b> 右上角顯示 <span className="text-indigo-500 font-black">Syncing</span> 代表正在與雲端對接，<span className="text-emerald-500 font-black">Updated</span> 代表資料已是最新。
                 </p>
               </section>
 
               <section className="space-y-3">
                 <h3 className="text-sm font-black bg-purple-50 text-purple-600 px-4 py-2 rounded-xl inline-block">
-                  💤 睡眠紀錄技巧
+                  📶 離線支援 (PWA)
                 </h3>
                 <p className="text-xs text-slate-600 leading-relaxed">
-                  點擊「開始睡覺」啟動計時，醒來時點擊「起來了 ☀️」即可自動完成紀錄。系統會以
-                  <b>起床時刻</b>來歸屬該筆紀錄的日期。
+                  本應用支援<b>完全斷網紀錄</b>。
+                  <br />• <b>秒開體驗：</b> 加入主畫面後，即便在飛航模式也能秒開 App。
+                  <br />• <b>離線紀錄：</b> 斷網時的紀錄會暫存在手機，連線後自動併入雲端。
                 </p>
               </section>
 
@@ -737,13 +739,13 @@ function App() {
                   ⚙️ 故障排除
                 </h3>
                 <p className="text-xs text-slate-600 leading-relaxed">
-                  若倒數計時不動或同步失敗，請嘗試：
+                  若資料未同步或提醒失敗，請嘗試：
                   <br />
-                  1. 重新整理網頁 (Ctrl+F5)。
+                  1. 點擊設定頁的 <b>「立即雙向同步」</b> 按鈕。
                   <br />
-                  2. 檢查設定頁的 <b>GAS URL</b> 或 <b>Google Client ID</b> 是否正確。
+                  2. 確保 Google 雲端授權未過期（頭像下方顯示已連結）。
                   <br />
-                  3. 確認 Google 雲端授權是否已「✅ 已連結」。
+                  3. 檢查設定中的 <b>GAS URL</b> 與 <b>Line Token</b> 是否正確配置。
                 </p>
               </section>
             </div>
