@@ -54,9 +54,9 @@ export const useSync = (babyInfo: BabyInfo | null, showToast: (msg: string) => v
     } catch (err) { console.error(err); }
   }, [babyInfo]);
 
-  const handleGoogleLogin = useCallback((callback?: (token: string) => void, isSilent = false) => {
+  const handleGoogleLogin = useCallback((callback?: (token: string) => void, forceSelect = false) => {
     if (!babyInfo?.googleClientId) {
-      if (!isSilent) showToast("請先在設定中輸入 Google Client ID ⚙️");
+      if (forceSelect) showToast("請先在設定中輸入 Google Client ID ⚙️");
       return;
     }
     try {
@@ -67,18 +67,19 @@ export const useSync = (babyInfo: BabyInfo | null, showToast: (msg: string) => v
           if (response.access_token) {
             const expiresAt = Date.now() + response.expires_in * 1000;
             updateToken(response.access_token, expiresAt);
-            if (!isSilent) showToast("Google 雲端連結已續約 ☁️");
+            if (forceSelect) showToast("Google 雲端連結已續約 ☁️");
             if (callback) callback(response.access_token);
           }
         },
         error_callback: (err: any) => {
-          if (!isSilent) showToast("Google 登入失敗 ❌");
+          if (forceSelect) showToast("Google 登入失敗 ❌");
           console.error("Auth Error:", err);
         }
       });
-      client.requestAccessToken({ prompt: isSilent ? '' : 'select_account' });
+      // 核心優化：除非是使用者點擊按鈕 (forceSelect)，否則不強制顯示帳號選擇器
+      client.requestAccessToken({ prompt: forceSelect ? 'select_account' : '' });
     } catch (err) {
-      if (!isSilent) showToast("Google Auth 初始化失敗");
+      if (forceSelect) showToast("Google Auth 初始化失敗");
       console.error(err);
     }
   }, [babyInfo, showToast, updateToken]);
