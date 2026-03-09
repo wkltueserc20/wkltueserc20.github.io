@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   LineChart,
   Line,
@@ -25,6 +25,7 @@ import { SummaryCards } from './components/Stats/SummaryCards';
 import { RecordForm } from './components/Records/RecordForm';
 import { RecordList } from './components/Records/RecordList';
 import { SettingsPanel } from './components/Settings/SettingsPanel';
+import { SyncStatus } from './components/Layout/SyncStatus';
 
 function App() {
   // --- States & Hooks ---
@@ -71,7 +72,32 @@ function App() {
     if (accessToken) {
       fullSync(records, setAllRecords);
     }
-  }, [accessToken, fullSync, setAllRecords]); // records dependency is handled by recordsRef internally in hooks usually, but here we use initial records
+  }, [accessToken, fullSync, setAllRecords]);
+
+  const recordsRef = useRef(records);
+  useEffect(() => { recordsRef.current = records; }, [records]);
+
+  useEffect(() => {
+    if (!accessToken) return;
+
+    const triggerSync = () => {
+      fullSync(recordsRef.current, setAllRecords, { silent: true });
+    };
+
+    const handleAutoSync = () => {
+      if (document.visibilityState === 'visible') triggerSync();
+    };
+
+    const handleOnline = () => triggerSync();
+
+    document.addEventListener('visibilitychange', handleAutoSync);
+    window.addEventListener('online', handleOnline);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleAutoSync);
+      window.removeEventListener('online', handleOnline);
+    };
+  }, [accessToken, fullSync, setAllRecords]); // Removed records from dependencies
 
   // --- Derived Data (Stats) ---
   const stats = useMemo(() => {
@@ -444,8 +470,11 @@ function App() {
               </div>
             </div>
           </div>
-          <div className="bg-slate-900 text-white w-9 h-9 rounded-2xl flex items-center justify-center text-[11px] uppercase shadow-xl font-black">
-            {currentTab.charAt(0)}
+          <div className="flex flex-col items-end gap-2 font-black">
+            <div className="bg-slate-900 text-white w-9 h-9 rounded-2xl flex items-center justify-center text-[11px] uppercase shadow-xl font-black">
+              {currentTab.charAt(0)}
+            </div>
+            <SyncStatus isSyncing={isSyncing} />
           </div>
         </div>
       </header>

@@ -54,21 +54,33 @@ export const useSync = (babyInfo: BabyInfo | null, showToast: (msg: string) => v
     } catch (err) { console.error(err); }
   }, [babyInfo]);
 
-  const handleGoogleLogin = useCallback((callback?: (token: string) => void) => {
-    if (!babyInfo?.googleClientId) { showToast("請先在設定中輸入 Google Client ID ⚙️"); return; }
-    const client = (window as any).google?.accounts.oauth2.initTokenClient({
-      client_id: babyInfo.googleClientId,
-      scope: 'https://www.googleapis.com/auth/drive.file',
-      callback: (response: any) => {
-        if (response.access_token) {
-          const expiresAt = Date.now() + response.expires_in * 1000;
-          updateToken(response.access_token, expiresAt);
-          showToast("Google 雲端連結已續約 ☁️");
-          if (callback) callback(response.access_token);
+  const handleGoogleLogin = useCallback((callback?: (token: string) => void, isSilent = false) => {
+    if (!babyInfo?.googleClientId) {
+      if (!isSilent) showToast("請先在設定中輸入 Google Client ID ⚙️");
+      return;
+    }
+    try {
+      const client = (window as any).google?.accounts.oauth2.initTokenClient({
+        client_id: babyInfo.googleClientId,
+        scope: 'https://www.googleapis.com/auth/drive.file',
+        callback: (response: any) => {
+          if (response.access_token) {
+            const expiresAt = Date.now() + response.expires_in * 1000;
+            updateToken(response.access_token, expiresAt);
+            if (!isSilent) showToast("Google 雲端連結已續約 ☁️");
+            if (callback) callback(response.access_token);
+          }
+        },
+        error_callback: (err: any) => {
+          if (!isSilent) showToast("Google 登入失敗 ❌");
+          console.error("Auth Error:", err);
         }
-      },
-    });
-    client.requestAccessToken({ prompt: '' });
+      });
+      client.requestAccessToken({ prompt: isSilent ? '' : 'select_account' });
+    } catch (err) {
+      if (!isSilent) showToast("Google Auth 初始化失敗");
+      console.error(err);
+    }
   }, [babyInfo, showToast, updateToken]);
 
   const pullRecordsFromDrive = useCallback(async (overrideToken?: string): Promise<Record[]> => {
@@ -141,8 +153,14 @@ export const useSync = (babyInfo: BabyInfo | null, showToast: (msg: string) => v
     } catch (err) { console.error("Drive Sync Error:", err); }
   }, [accessToken, tokenExpire, babyInfo, handleGoogleLogin]);
 
-  const fullSync = useCallback(async (localRecords: Record[], onSyncComplete: (merged: Record[]) => void) => {
+  const fullSync = useCallback(async (localRecords: Record[], onSyncComplete: (merged: Record[]) => void, options?: { silent?: boolean }) => {
+    if (isSyncing) return;
+    const isSilent = options?.silent || false;
+    
     if (!accessToken || Date.now() > tokenExpire) {
+      // For background sync, we don't want to pop up login if it's silent
+      if (isSilent) return; 
+
       handleGoogleLogin(async (newToken) => {
         setIsSyncing(true);
         const remote = await pullRecordsFromDrive(newToken);
@@ -160,12 +178,14 @@ export const useSync = (babyInfo: BabyInfo | null, showToast: (msg: string) => v
       const merged = mergeRecords(localRecords, remote);
       onSyncComplete(merged);
       await syncToDriveDirect(merged);
+      if (!isSilent) showToast("同步完成 ✅");
     } catch (err) {
       console.error("Full Sync Error:", err);
+      if (!isSilent) showToast("同步失敗 ❌");
     } finally {
       setIsSyncing(false);
     }
-  }, [accessToken, tokenExpire, handleGoogleLogin, pullRecordsFromDrive, syncToDriveDirect]);
+  }, [accessToken, tokenExpire, handleGoogleLogin, pullRecordsFromDrive, syncToDriveDirect, showToast]);
 
   return {
     accessToken,
