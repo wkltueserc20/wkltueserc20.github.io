@@ -20,7 +20,7 @@ export const RecordList: React.FC<RecordListProps> = ({
   onDelete,
 }) => {
   const filteredRecords = records.filter(
-    (r) => isSameDay(getRecordTargetTs(r), searchDate) && (filter === 'all' || r.type === filter)
+    (r) => !r.isDeleted && isSameDay(getRecordTargetTs(r), searchDate) && (filter === 'all' || r.type === filter)
   );
 
   return (

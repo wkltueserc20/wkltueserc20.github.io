@@ -14,6 +14,7 @@ export interface Record {
   height?: number;
   note?: string;
   updatedAt?: number;
+  isDeleted?: boolean;
 }
 
 export interface BabyInfo {

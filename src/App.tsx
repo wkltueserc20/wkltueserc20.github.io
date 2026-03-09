@@ -30,7 +30,7 @@ import { SyncStatus } from './components/Layout/SyncStatus';
 function App() {
   // --- States & Hooks ---
   const { babyInfo, setBabyInfo } = useBabyInfo();
-  const { records, addRecord, updateRecord, deleteRecord, setAllRecords } = useRecords();
+  const { records, addRecord, updateRecord, setAllRecords } = useRecords();
   const [currentTab, setCurrentTab] = useState<TabType>('home');
   const [toast, setToast] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | RecordType>('all');
@@ -104,7 +104,7 @@ function App() {
 
   // --- Derived Data (Stats) ---
   const stats = useMemo(() => {
-    const dayRecords = records.filter((r) => isSameDay(getRecordTargetTs(r), searchDate));
+    const dayRecords = records.filter((r) => !r.isDeleted && isSameDay(getRecordTargetTs(r), searchDate));
     const milkTotal = dayRecords.reduce(
       (acc, curr) => acc + (curr.type === 'feeding' ? curr.amount || 0 : 0),
       0
@@ -113,7 +113,7 @@ function App() {
       (acc, curr) => acc + (curr.type === 'sleep' ? curr.amount || 0 : 0),
       0
     );
-    const latestGrowth = records.find((r) => r.type === 'growth');
+    const latestGrowth = records.find((r) => !r.isDeleted && r.type === 'growth');
     return {
       milkTotal,
       sleepH: Math.floor(sleepMins / 60),
@@ -123,7 +123,7 @@ function App() {
   }, [records, searchDate]);
 
   const nextFeed = useMemo(() => {
-    const last = records.find((r) => r.type === 'feeding');
+    const last = records.find((r) => !r.isDeleted && r.type === 'feeding');
     if (!last) return null;
     const hr = new Date(last.timestamp).getHours();
     if (hr === 23 || hr === 0) return { skip: true };
@@ -148,7 +148,7 @@ function App() {
       d.setDate(d.getDate() - i);
       const dateStr = d.toLocaleDateString('en-CA');
       const dayTotal = records
-        .filter((r) => isSameDay(r.timestamp, dateStr) && r.type === 'feeding')
+        .filter((r) => !r.isDeleted && isSameDay(r.timestamp, dateStr) && r.type === 'feeding')
         .reduce((s, r) => s + (r.amount || 0), 0);
       data.push({
         name: d.toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' }),
@@ -165,7 +165,7 @@ function App() {
       d.setDate(d.getDate() - i);
       const dateStr = d.toLocaleDateString('en-CA');
       const mins = records
-        .filter((r) => r.type === 'sleep' && isSameDay(getRecordTargetTs(r), dateStr))
+        .filter((r) => !r.isDeleted && r.type === 'sleep' && isSameDay(getRecordTargetTs(r), dateStr))
         .reduce((s, r) => s + (r.amount || 0), 0);
       data.push({
         name: d.toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' }),
@@ -178,7 +178,7 @@ function App() {
   const growthChartData = useMemo(
     () =>
       records
-        .filter((r) => r.type === 'growth')
+        .filter((r) => !r.isDeleted && r.type === 'growth')
         .sort((a, b) => a.timestamp - b.timestamp)
         .map((r) => ({
           date: new Date(r.timestamp).toLocaleDateString('zh-TW', {
@@ -287,8 +287,11 @@ function App() {
   const handleDeleteRecord = (id: string) => {
     if (window.confirm('確定要刪除這筆紀錄嗎？')) {
       const target = records.find((r) => r.id === id);
-      const newRecs = records.filter((r) => r.id !== id);
-      deleteRecord(id);
+      if (!target) return;
+      const updatedRec = { ...target, isDeleted: true, updatedAt: Date.now() };
+      updateRecord(updatedRec);
+      
+      const newRecs = records.map(r => r.id === id ? updatedRec : r);
       showToast('已刪除 🗑️');
       fullSync(newRecs, setAllRecords);
       if (target?.type === 'feeding') cancelGasSchedule();
