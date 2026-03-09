@@ -8,7 +8,7 @@ type TabType = 'home' | 'stats' | 'settings' | 'manual';
 interface Record {
   id: string; type: RecordType; milkType?: MilkType;
   time: string; timestamp: number; endTimestamp?: number;
-  amount?: number; status?: string; weight?: number; height?: number; note?: string;
+  amount?: number; weight?: number; height?: number; note?: string;
 }
 
 interface BabyInfo {
@@ -40,7 +40,6 @@ function App() {
   const [type, setType] = useState<RecordType>('feeding');
   const [milkType, setMilkType] = useState<MilkType>('breast');
   const [amount, setAmount] = useState<number>(180);
-  const [status, setStatus] = useState<string>('wet');
   const [weight, setWeight] = useState<number>(3.50);
   const [height, setHeight] = useState<number>(50);
   const [note, setNote] = useState<string>('');
@@ -293,7 +292,7 @@ function App() {
     const fileName = `baby_records_${dateStr}.csv`;
 
     let csv = "\uFEFFID,時間,類別,奶種,數值,狀態,體重,身高,開始時間戳,結束時間戳,備註\n";
-    data.forEach(r => { csv += `"${r.id}","${r.time}","${r.type}","${r.milkType||''}","${r.amount||''}","${r.status||''}","${r.weight||''}","${r.height||''}","${r.timestamp}","${r.endTimestamp||''}","${r.note||''}"\n`; });
+    data.forEach(r => { csv += `"${r.id}","${r.time}","${r.type}","${r.milkType||''}","${r.amount||''}","","${r.weight||''}","${r.height||''}","${r.timestamp}","${r.endTimestamp||''}","${r.note||''}"\n`; });
 
     try {
       // 1. Search for existing file within the specified folder for TODAY
@@ -353,7 +352,7 @@ function App() {
     const fileName = `baby_records_${dateStr}_${timeStr}.csv`;
     
     let csv = "\uFEFFID,時間,類別,奶種,數值,狀態,體重,身高,開始時間戳,結束時間戳,備註\n";
-    records.forEach(r => { csv += `"${r.id}","${r.time}","${r.type}","${r.milkType||''}","${r.amount||''}","${r.status||''}","${r.weight||''}","${r.height||''}","${r.timestamp}","${r.endTimestamp||''}","${r.note||''}"\n`; });
+    records.forEach(r => { csv += `"${r.id}","${r.time}","${r.type}","${r.milkType||''}","${r.amount||''}","","${r.weight||''}","${r.height||''}","${r.timestamp}","${r.endTimestamp||''}","${r.note||''}"\n`; });
     
     const link = document.createElement("a"); 
     link.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;' })); 
@@ -378,7 +377,7 @@ function App() {
         const c = parseCSVLine(l.trim()); if (c.length < 11) return; const ts = Number(c[8]);
         const recordType = c[2] as RecordType;
         if (recordType !== 'diaper' as any && !isNaN(ts) && !newRecs.some(rr => rr.timestamp === ts)) {
-          newRecs.push({ id: c[0] || crypto.randomUUID(), time: c[1], timestamp: ts, type: recordType, milkType: c[3] as MilkType, amount: c[4]?Number(c[4]):undefined, status: c[5], weight: c[6]?Number(c[6]):undefined, height: c[7]?Number(c[7]):undefined, endTimestamp: c[9]?Number(c[9]):undefined, note: c[10] });
+          newRecs.push({ id: c[0] || crypto.randomUUID(), time: c[1], timestamp: ts, type: recordType, milkType: c[3] as MilkType, amount: c[4]?Number(c[4]):undefined, weight: c[6]?Number(c[6]):undefined, height: c[7]?Number(c[7]):undefined, endTimestamp: c[9]?Number(c[9]):undefined, note: c[10] });
           count++;
         }
       });
