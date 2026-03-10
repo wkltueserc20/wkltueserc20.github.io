@@ -44,6 +44,7 @@ function App() {
   const [now, setNow] = useState<number>(Date.now());
   const [isEditing, setIsEditing] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [statsRange, setStatsRange] = useState<number>(7);
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);
@@ -161,7 +162,7 @@ function App() {
 
   const milkChartData = useMemo(() => {
     const data = [];
-    for (let i = 6; i >= 0; i--) {
+    for (let i = statsRange - 1; i >= 0; i--) {
       const d = new Date();
       d.setDate(d.getDate() - i);
       const dateStr = d.toLocaleDateString('en-CA');
@@ -174,11 +175,11 @@ function App() {
       });
     }
     return data;
-  }, [records]);
+  }, [records, statsRange]);
 
   const sleepChartData = useMemo(() => {
     const data = [];
-    for (let i = 6; i >= 0; i--) {
+    for (let i = statsRange - 1; i >= 0; i--) {
       const d = new Date();
       d.setDate(d.getDate() - i);
       const dateStr = d.toLocaleDateString('en-CA');
@@ -191,7 +192,7 @@ function App() {
       });
     }
     return data;
-  }, [records]);
+  }, [records, statsRange]);
 
   const growthChartData = useMemo(
     () =>
@@ -580,6 +581,23 @@ function App() {
 
         {currentTab === 'stats' && (
           <div className="space-y-7 pb-16 font-black animate-in fade-in duration-700 font-black text-slate-800">
+            {/* 時間區間切換器 */}
+            <div className="bg-white p-2 rounded-[2rem] shadow-sm border border-slate-100 flex gap-1 font-black">
+              {[7, 14, 28].map((range) => (
+                <button
+                  key={range}
+                  onClick={() => setStatsRange(range)}
+                  className={`flex-1 py-3.5 rounded-[1.5rem] text-[11px] font-black uppercase transition-all ${
+                    statsRange === range 
+                      ? 'bg-slate-900 text-white shadow-lg scale-[1.02]' 
+                      : 'text-slate-400 hover:bg-slate-50'
+                  }`}
+                >
+                  {range} Days
+                </button>
+              ))}
+            </div>
+
             <div className="bg-white p-7 rounded-[2.5rem] shadow-sm border border-slate-100 font-black font-black">
               <h2 className="text-[11px] text-slate-900 mb-8 uppercase tracking-widest flex items-center gap-2 text-left font-black">
                 <div className="w-2 h-5 bg-indigo-500 rounded-full" /> 每日奶量 (ml)
@@ -592,7 +610,7 @@ function App() {
                       dataKey="name"
                       axisLine={false}
                       tickLine={false}
-                      tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 900 }}
+                      tick={{ fontSize: statsRange > 14 ? 8 : 10, fill: '#94a3b8', fontWeight: 900 }}
                     />
                     <YAxis
                       axisLine={false}
@@ -600,7 +618,7 @@ function App() {
                       tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 900 }}
                     />
                     <Tooltip cursor={{ fill: '#F8FAFC', radius: 12 }} />
-                    <Bar dataKey="amount" fill="#6366f1" radius={[8, 8, 8, 8]} barSize={28} />
+                    <Bar dataKey="amount" fill="#6366f1" radius={[8, 8, 8, 8]} barSize={statsRange > 14 ? 12 : 28} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -617,7 +635,7 @@ function App() {
                       dataKey="name"
                       axisLine={false}
                       tickLine={false}
-                      tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 900 }}
+                      tick={{ fontSize: statsRange > 14 ? 8 : 10, fill: '#94a3b8', fontWeight: 900 }}
                     />
                     <YAxis
                       axisLine={false}
@@ -625,7 +643,7 @@ function App() {
                       tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 900 }}
                     />
                     <Tooltip cursor={{ fill: '#F8FAFC', radius: 12 }} />
-                    <Bar dataKey="hours" fill="#a855f7" radius={[8, 8, 8, 8]} barSize={28} />
+                    <Bar dataKey="hours" fill="#a855f7" radius={[8, 8, 8, 8]} barSize={statsRange > 14 ? 12 : 28} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>

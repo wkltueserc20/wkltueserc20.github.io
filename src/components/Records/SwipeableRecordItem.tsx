@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion, useMotionValue, useTransform } from 'framer-motion';
 
 interface SwipeableRecordItemProps {
@@ -8,38 +8,49 @@ interface SwipeableRecordItemProps {
 }
 
 export const SwipeableRecordItem: React.FC<SwipeableRecordItemProps> = ({ children, onDelete, onEdit }) => {
+  const [isOpen, setIsOpen] = useState(false);
   const x = useMotionValue(0);
-  const DRAG_THRESHOLD = -40;
   const MAX_DRAG = -80;
-
-  // 背景顏色的透明度隨滑動距離變化
+  
   const opacity = useTransform(x, [0, MAX_DRAG], [0, 1]);
-  const scale = useTransform(x, [0, MAX_DRAG], [0.8, 1]);
+
+  const handleDragStart = () => {
+    // 當開始水平拖曳時，鎖定 Body 捲動，防止 Y 軸移動
+    document.body.style.overflow = 'hidden';
+  };
 
   const handleDragEnd = (_: any, info: any) => {
-    if (info.offset.x < DRAG_THRESHOLD) {
-      // 保持開啟
-      x.set(MAX_DRAG);
-    } else {
-      // 收回
-      x.set(0);
-    }
+    // 拖曳結束，恢復 Body 捲動
+    document.body.style.overflow = '';
+
+    const shouldOpen = info.offset.x < -30 || info.velocity.x < -300;
+    setIsOpen(shouldOpen);
+    
+    if (!shouldOpen) x.set(0);
+  };
+
+  const variants = {
+    closed: { x: 0 },
+    open: { x: MAX_DRAG }
   };
 
   return (
-    <div className="relative overflow-hidden rounded-[2.25rem] font-black">
+    <div 
+      className="relative overflow-hidden rounded-[2.25rem] bg-rose-500 select-none"
+      style={{ WebkitUserSelect: 'none', touchAction: 'pan-y' }}
+    >
       {/* Bottom Layer: Action Button */}
       <motion.div 
-        style={{ opacity, scale }}
-        className="absolute inset-y-0 right-0 w-20 bg-rose-500 flex items-center justify-center z-0"
+        style={{ opacity }}
+        className="absolute inset-y-0 right-0 w-20 flex items-center justify-center z-0"
       >
         <button 
           onClick={(e) => {
             e.stopPropagation();
             onDelete();
-            x.set(0); // 刪除後收回
+            setIsOpen(false);
           }}
-          className="w-full h-full text-white flex flex-col items-center justify-center gap-1"
+          className="w-full h-full text-white flex flex-col items-center justify-center gap-1 active:opacity-70"
         >
           <span className="text-xl">🗑️</span>
           <span className="text-[9px] font-black uppercase">Delete</span>
@@ -49,20 +60,30 @@ export const SwipeableRecordItem: React.FC<SwipeableRecordItemProps> = ({ childr
       {/* Top Layer: Content */}
       <motion.div
         drag="x"
+        dragDirectionLock // 關鍵：偵測到水平意圖後鎖定方向
+        dragMomentum={false}
+        dragElastic={0}
         dragConstraints={{ left: MAX_DRAG, right: 0 }}
-        dragElastic={0.1}
+        onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
-        style={{ x }}
-        onTap={() => {
-          // 只有在沒滑開的情況下點擊才觸發編輯
-          if (x.get() === 0) {
-            onEdit();
-          } else {
-            // 如果已經滑開，點擊內容區則收回
-            x.set(0);
-          }
+        animate={isOpen ? 'open' : 'closed'}
+        variants={variants}
+        transition={{ type: 'spring', stiffness: 600, damping: 45 }}
+        style={{ 
+          x, 
+          touchAction: 'pan-y', // 關鍵：告訴瀏覽器水平方向由 JS 處理，垂直才由瀏覽器捲動
+          willChange: 'transform',
+          WebkitTapHighlightColor: 'transparent'
         }}
-        className="relative z-10 bg-white cursor-pointer active:scale-[0.98] transition-transform duration-200"
+        onTap={() => {
+          const currentX = Math.abs(x.get());
+          if (currentX > 5) {
+            if (isOpen) setIsOpen(false);
+            return;
+          }
+          onEdit();
+        }}
+        className="relative z-10 bg-white shadow-sm border border-slate-50 overflow-hidden rounded-[2.25rem]"
       >
         {children}
       </motion.div>
