@@ -27,6 +27,7 @@ import { RecordForm } from './components/Records/RecordForm';
 import { RecordList } from './components/Records/RecordList';
 import { SettingsPanel } from './components/Settings/SettingsPanel';
 import { SyncStatus } from './components/Layout/SyncStatus';
+import { BottomSheet } from './components/Layout/BottomSheet';
 
 function App() {
   // --- States & Hooks ---
@@ -42,6 +43,7 @@ function App() {
   });
   const [now, setNow] = useState<number>(Date.now());
   const [isEditing, setIsEditing] = useState<string | null>(null);
+  const [showForm, setShowForm] = useState(false);
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);
@@ -299,6 +301,7 @@ function App() {
       updatedRecords = [newRec, ...records];
       showToast('新增成功 ✨');
     }
+    setShowForm(false);
     fullSync(updatedRecords, setAllRecords);
   };
 
@@ -561,19 +564,6 @@ function App() {
               stats={stats}
             />
 
-            {(isTodaySearch || isEditing) && (
-              <RecordForm
-                isEditing={isEditing}
-                records={records}
-                onSave={handleSaveRecord}
-                onCancel={() => setIsEditing(null)}
-                sleepStartTime={sleepStartTime}
-                onStartSleep={handleStartSleep}
-                onWakeUp={handleWakeUp}
-                now={now}
-              />
-            )}
-
             <RecordList
               records={records}
               searchDate={searchDate}
@@ -581,7 +571,7 @@ function App() {
               setFilter={setFilter}
               onEdit={(r) => {
                 setIsEditing(r.id);
-                window.scrollTo({ top: 0, behavior: 'smooth' });
+                setShowForm(true);
               }}
               onDelete={handleDeleteRecord}
             />
@@ -779,45 +769,71 @@ function App() {
         )}
       </main>
 
-      <nav className="fixed bottom-0 w-full bg-white/95 backdrop-blur-xl border-t border-slate-100 px-8 pb-10 pt-4 z-50 shadow-lg font-black text-slate-800">
-        <div className="max-w-md mx-auto flex justify-around items-center font-black">
+      <nav className="fixed bottom-0 w-full bg-white/95 backdrop-blur-xl border-t border-slate-100 px-6 pb-10 pt-4 z-50 shadow-[0_-10px_25px_-5px_rgba(0,0,0,0.05)] font-black text-slate-800">
+        <div className="max-w-md mx-auto flex justify-between items-center font-black relative">
+          {/* 左側 2 個 Tabs */}
           {[
             { id: 'home', icon: '📝', label: '日常' },
             { id: 'stats', icon: '📈', label: '統計' },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setCurrentTab(tab.id as TabType)}
+              className={`flex-1 flex flex-col items-center gap-1.5 transition-all duration-500 font-black ${
+                currentTab === tab.id ? 'text-indigo-600' : 'text-slate-300'
+              }`}
+            >
+              <span className={`text-2xl transition-all duration-500 ${currentTab === tab.id ? '' : 'grayscale opacity-40 scale-90'}`}>{tab.icon}</span>
+              <span className={`text-[10px] transition-all duration-500 ${currentTab === tab.id ? 'opacity-100' : 'opacity-0'}`}>{tab.label}</span>
+            </button>
+          ))}
+
+          {/* 中央 FAB */}
+          <div className="flex-1 flex justify-center -mt-12">
+            <button 
+              onClick={() => { setIsEditing(null); setShowForm(true); }}
+              className="w-16 h-16 bg-slate-900 text-white rounded-full flex items-center justify-center text-3xl shadow-2xl active:scale-90 transition-all border-4 border-white"
+            >
+              ＋
+            </button>
+          </div>
+
+          {/* 右側 2 個 Tabs */}
+          {[
             { id: 'manual', icon: '📖', label: '手冊' },
             { id: 'settings', icon: '⚙️', label: '設定' },
           ].map((tab) => (
             <button
               key={tab.id}
               onClick={() => setCurrentTab(tab.id as TabType)}
-              className={`flex flex-col items-center gap-2 transition-all duration-500 font-black ${
+              className={`flex-1 flex flex-col items-center gap-1.5 transition-all duration-500 font-black ${
                 currentTab === tab.id ? 'text-indigo-600' : 'text-slate-300'
               }`}
             >
-              <div
-                className={`w-16 h-12 rounded-[1.25rem] flex items-center justify-center transition-all duration-500 font-black ${
-                  currentTab === tab.id ? 'bg-indigo-50 shadow-inner scale-110' : ''
-                }`}
-              >
-                <span
-                  className={`text-2xl font-black ${
-                    currentTab === tab.id ? '' : 'grayscale opacity-40 scale-90'
-                  }`}
-                >
-                  {tab.icon}
-                </span>
-              </div>
-              <span
-                className={`text-[11px] transition-all duration-500 font-black ${
-                  currentTab === tab.id ? 'opacity-100' : 'opacity-0'
-                }`}
-              >
-                {tab.label}
-              </span>
+              <span className={`text-2xl transition-all duration-500 ${currentTab === tab.id ? '' : 'grayscale opacity-40 scale-90'}`}>{tab.icon}</span>
+              <span className={`text-[10px] transition-all duration-500 ${currentTab === tab.id ? 'opacity-100' : 'opacity-0'}`}>{tab.label}</span>
             </button>
           ))}
         </div>
       </nav>
+
+      {/* 全域表單抽屜 */}
+      <BottomSheet 
+        isOpen={showForm} 
+        onClose={() => { setShowForm(false); setIsEditing(null); }}
+        title={isEditing ? "修改紀錄" : "新增育兒紀錄"}
+      >
+        <RecordForm
+          isEditing={isEditing}
+          records={records}
+          onSave={handleSaveRecord}
+          onCancel={() => { setShowForm(false); setIsEditing(null); }}
+          sleepStartTime={sleepStartTime}
+          onStartSleep={handleStartSleep}
+          onWakeUp={handleWakeUp}
+          now={now}
+        />
+      </BottomSheet>
     </div>
   );
 }
