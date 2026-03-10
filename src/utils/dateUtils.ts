@@ -11,6 +11,13 @@ export const isSameDay = (ts: number, target: string) => {
   return d.getFullYear() === y && (d.getMonth() + 1) === m && d.getDate() === day;
 };
 
+export const getYesterdayDateString = (dateStr: string) => {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const date = new Date(y, m - 1, d);
+  date.setDate(date.getDate() - 1);
+  return date.toLocaleDateString('en-CA');
+};
+
 export const getRecordTargetTs = (r: Record) =>
   r.type === 'sleep' && r.endTimestamp ? r.endTimestamp : r.timestamp;
 

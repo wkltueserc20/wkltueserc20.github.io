@@ -17,6 +17,7 @@ import { useRecords } from './hooks/useRecords';
 import { useSync } from './hooks/useSync';
 import {
   isSameDay,
+  getYesterdayDateString,
   getRecordTargetTs,
   formatTimeWithPeriod,
 } from './utils/dateUtils';
@@ -106,20 +107,34 @@ function App() {
   // --- Derived Data (Stats) ---
   const stats = useMemo(() => {
     const dayRecords = records.filter((r) => !r.isDeleted && isSameDay(getRecordTargetTs(r), searchDate));
-    const milkTotal = dayRecords.reduce(
-      (acc, curr) => acc + (curr.type === 'feeding' ? curr.amount || 0 : 0),
-      0
-    );
-    const sleepMins = dayRecords.reduce(
-      (acc, curr) => acc + (curr.type === 'sleep' ? curr.amount || 0 : 0),
-      0
-    );
+    const yesterdayDate = getYesterdayDateString(searchDate);
+    const yesterdayRecords = records.filter((r) => !r.isDeleted && isSameDay(getRecordTargetTs(r), yesterdayDate));
+
+    const milkTotal = dayRecords.reduce((acc, curr) => acc + (curr.type === 'feeding' ? curr.amount || 0 : 0), 0);
+    const sleepMins = dayRecords.reduce((acc, curr) => acc + (curr.type === 'sleep' ? curr.amount || 0 : 0), 0);
+    const maxSleepSession = dayRecords
+      .filter((r) => r.type === 'sleep')
+      .reduce((max, r) => Math.max(max, r.amount || 0), 0);
+
+    const yMilkTotal = yesterdayRecords.reduce((acc, curr) => acc + (curr.type === 'feeding' ? curr.amount || 0 : 0), 0);
+    const ySleepMins = yesterdayRecords.reduce((acc, curr) => acc + (curr.type === 'sleep' ? curr.amount || 0 : 0), 0);
+
     const latestGrowth = records.find((r) => !r.isDeleted && r.type === 'growth');
+    const daysSinceGrowth = latestGrowth 
+      ? Math.floor((new Date(searchDate).getTime() - latestGrowth.timestamp) / 86400000)
+      : null;
+
     return {
       milkTotal,
       sleepH: Math.floor(sleepMins / 60),
       sleepM: sleepMins % 60,
+      maxSleepSession,
       latestGrowth,
+      daysSinceGrowth,
+      yesterday: {
+        milkTotal: yMilkTotal,
+        sleepMins: ySleepMins
+      }
     };
   }, [records, searchDate]);
 
