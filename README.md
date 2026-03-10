@@ -1,27 +1,47 @@
-# wkltueserc20.github.io
+# 👶 育兒助手 - 現代化高品質 Web App (v9.2)
 
-這是我的個人主頁，使用 **React 19**, **TypeScript** 和 **Vite** 構建。
+這是一個專為父母設計的高品質育兒紀錄助手。採用 **React 19** + **Vite** 構建，具備 **PWA** 離線能力與 **Google Drive** 自動雙向同步。
+
+[![🚀 在線演示](https://img.shields.io/badge/演示-wkltueserc20.github.io-6366f1?style=for-the-badge&logo=react)](https://wkltueserc20.github.io)
+[![📖 功能手冊](https://img.shields.io/badge/手冊-README_FEATURES-10b981?style=for-the-badge&logo=markdown)](README_FEATURES.md)
+
+---
+
+## ✨ 核心亮點 (v9.2)
+
+- **📱 絲滑手勢互動**：專為 iPhone 優化的左滑刪除與軸向鎖定技術。
+- **🏗️ 現代化 FAB 佈局**：底部圓形動作按鈕與優雅的抽屜式表單 (Bottom Sheet)。
+- **☁️ 長效代理同步**：透過專屬 GAS 代理實現一次授權、數月有效的無感雲端同步。
+- **📊 智能數據洞察**：自動計算今日 vs 昨日奶量對比，提供長覺睡眠分析。
+- **🔌 多人協作**：支援多設備同時紀錄，資料自動合併不覆蓋。
+
+---
 
 ## 🚀 快速開始
 
 ### 本地開發
-
 ```bash
-# 安裝依賴
+git clone https://github.com/wkltueserc20/wkltueserc20.github.io.git
+cd wkltueserc20.github.io
 npm install
-
-# 啟動開發伺服器
 npm run dev
 ```
 
-### 自動部署
+---
 
-本專案配置了 GitHub Actions。當您將變更推送到 `main` 分支時，網頁會自動編譯並部署到 [wkltueserc20.github.io](https://wkltueserc20.github.io)。
+## 🛠 技術規格
 
-## 🛠 技術棧
+- **Frontend**: React 19, TypeScript, Tailwind CSS v4, Framer Motion
+- **Database**: IndexedDB (via Dexie.js)
+- **Synchronization**: Google Drive API + Google Apps Script (GAS) Proxy
+- **PWA**: Service Worker (via vite-plugin-pwa) for offline support
 
-- **框架**: React 19
-- **構建工具**: Vite
-- **語言**: TypeScript
-- **樣式**: Vanilla CSS
-- **部署**: GitHub Actions & GitHub Pages
+---
+
+## 📂 更多文件
+
+- [📘 詳細功能與 LINE 通知設定手冊](README_FEATURES.md)
+- [📦 GAS 後端原始碼](openspec/GAS_SCRIPT.gs)
+
+---
+*Created with ❤️ for better parenting.*
