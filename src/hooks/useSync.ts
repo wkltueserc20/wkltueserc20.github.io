@@ -39,6 +39,7 @@ export const useSync = (babyInfo: BabyInfo | null, showToast: (msg: string) => v
   const callGasApi = useCallback(async (targetTs: number, isTest = false) => {
     const data = babyInfo;
     if (!data?.gasUrl || !data?.lineToken || !data?.lineUserId) return;
+    if (!data?.lineEnabled && !isTest) return; // 核心修正：非測試請求且開關關閉時，不執行
     try {
       await fetch(data.gasUrl, {
         method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' },

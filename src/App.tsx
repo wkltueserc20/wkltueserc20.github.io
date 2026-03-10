@@ -258,8 +258,10 @@ function App() {
     if (recordData.type === 'feeding') {
       const hr = new Date(ts).getHours();
       if (hr !== 23 && hr !== 0) {
-        callGasApi(ts + 4 * 60 * 60 * 1000);
-        showToast('☁️ 正在同步雲端提醒...');
+        if (babyInfo?.lineEnabled) {
+          callGasApi(ts + 4 * 60 * 60 * 1000);
+          showToast('☁️ 正在同步雲端提醒...');
+        }
       } else {
         cancelGasSchedule();
         showToast('🌙 深夜長睡眠，已取消雲端提醒');
