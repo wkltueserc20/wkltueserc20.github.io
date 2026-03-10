@@ -227,7 +227,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
           重新設定寶寶
         </button>
         <p className="mt-6 text-[9px] text-slate-300 tracking-[0.3em] font-black uppercase font-black">
-          v9.0 (20260309)
+          v9.1 (20260310)
         </p>
       </div>
     </div>

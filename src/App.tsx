@@ -724,13 +724,13 @@ function App() {
 
               <section className="space-y-3">
                 <h3 className="text-sm font-black bg-emerald-50 text-emerald-600 px-4 py-2 rounded-xl inline-block">
-                  ☁️ 雙向同步與多人協作
+                  ☁️ 雙向同步與多人協作 (v9.1)
                 </h3>
                 <p className="text-xs text-slate-600 leading-relaxed">
-                  系統透過 Google Drive 實現<b>多設備即時聯動</b>。
-                  <br />• <b>全自動同步：</b> 當您回到 App 或網路恢復時，系統會自動執行靜默同步。
-                  <br />• <b>智慧合併：</b> 不同設備的紀錄會自動彙整，不會互相覆蓋。
-                  <br />• <b>狀態指標：</b> 右上角顯示 <span className="text-indigo-500 font-black">Syncing</span> 代表正在與雲端對接，<span className="text-emerald-500 font-black">Updated</span> 代表資料已是最新。
+                  系統透過您的專屬 GAS 實現<b>多設備永久聯動</b>。
+                  <br />• <b>長效授權：</b> 僅需在設定中執行一次「永久授權」，之後再也不會彈出 Google 登入視窗。
+                  <br />• <b>全自動同步：</b> 當您回到 App 或網路恢復時，系統會自動透過 GAS 代理執行靜默同步。
+                  <br />• <b>安全代理：</b> 所有資料交換皆由您的私有 GAS 處理，徹底解決瀏覽器第三方 Cookie 限制問題。
                 </p>
               </section>
 
