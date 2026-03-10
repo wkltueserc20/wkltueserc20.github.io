@@ -123,6 +123,13 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
           placeholder="GAS URL"
           className="w-full p-4 bg-slate-50 rounded-2xl outline-none text-xs border border-slate-100 font-black"
         />
+        <input
+          type="password"
+          value={babyInfo.syncSecret || ''}
+          onChange={(e) => setBabyInfo({ ...babyInfo, syncSecret: e.target.value })}
+          placeholder="GAS 通訊密鑰 (SYNC_SECRET)"
+          className="w-full p-4 bg-slate-50 rounded-2xl outline-none text-xs border border-slate-100 font-black"
+        />
         <div className="grid grid-cols-2 gap-3 font-black">
           <button
             onClick={onSendLineTest}
@@ -163,7 +170,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
             accessToken ? 'bg-emerald-50 text-emerald-600' : 'bg-indigo-600 text-white shadow-lg active:scale-95'
           }`}
         >
-          {accessToken ? '✅ 已連結 Google 雲端' : '🔗 連結 Google 雲端帳戶'}
+          {accessToken ? '✅ 已建立長效雲端連結' : '🔗 連結 Google 雲端 (永久授權)'}
         </button>
         {accessToken && (
           <div className="space-y-4">

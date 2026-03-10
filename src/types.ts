@@ -27,4 +27,5 @@ export interface BabyInfo {
   gasUrl?: string;
   googleClientId?: string;
   googleFolderId?: string;
+  syncSecret?: string;
 }

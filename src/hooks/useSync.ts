@@ -4,22 +4,38 @@ import { generateCSVString, csvToRecords } from '../utils/csvUtils';
 import { mergeRecords } from '../utils/mergeUtils';
 
 export const useSync = (babyInfo: BabyInfo | null, showToast: (msg: string) => void) => {
+  // accessToken 這裡改為表示「是否已完成長效連結」的狀態標記
   const [accessToken, setAccessToken] = useState<string | null>(() => localStorage.getItem('google-access-token'));
-  const [tokenExpire, setTokenExpire] = useState<number>(() => Number(localStorage.getItem('google-token-expire') || 0));
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
   
-  // 使用 Ref 追蹤同步狀態，避免觸發 useCallback 重造
   const syncingRef = useRef(false);
   const pendingSyncRef = useRef<Record[] | null>(null);
 
-  const updateToken = useCallback((token: string, expiresAt: number) => {
+  const updateToken = useCallback((token: string) => {
     setAccessToken(token);
-    setTokenExpire(expiresAt);
     setSyncError(null);
     localStorage.setItem('google-access-token', token);
-    localStorage.setItem('google-token-expire', expiresAt.toString());
   }, []);
+
+  // --- GAS 代理請求輔助函式 ---
+  const callGasProxy = useCallback(async (action: string, payload: any) => {
+    if (!babyInfo?.gasUrl) throw new Error("Missing GAS URL");
+    
+    const response = await fetch(babyInfo.gasUrl, {
+      method: 'POST',
+      body: JSON.stringify({
+        ...payload,
+        action,
+        syncSecret: babyInfo.syncSecret // 使用通訊密鑰
+      })
+    });
+
+    if (!response.ok) throw new Error(`GAS Error: ${response.status}`);
+    const result = await response.json();
+    if (result.error) throw new Error(result.error);
+    return result;
+  }, [babyInfo]);
 
   const sendLineAction = useCallback(async (message: string, isAuto = false) => {
     const data = babyInfo;
@@ -39,11 +55,18 @@ export const useSync = (babyInfo: BabyInfo | null, showToast: (msg: string) => v
   const callGasApi = useCallback(async (targetTs: number, isTest = false) => {
     const data = babyInfo;
     if (!data?.gasUrl || !data?.lineToken || !data?.lineUserId) return;
-    if (!data?.lineEnabled && !isTest) return; // 核心修正：非測試請求且開關關閉時，不執行
+    if (!data?.lineEnabled && !isTest) return;
     try {
       await fetch(data.gasUrl, {
         method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: isTest ? "test" : "schedule", token: data.lineToken, userId: data.lineUserId, targetTime: targetTs, babyName: data.name })
+        body: JSON.stringify({ 
+          action: isTest ? "test" : "schedule", 
+          token: data.lineToken, 
+          userId: data.lineUserId, 
+          targetTime: targetTs, 
+          babyName: data.name,
+          syncSecret: data.syncSecret 
+        })
       });
       if (isTest) showToast("GAS 指令已送出，請查收 LINE 🚀");
     } catch (err) { console.error(err); }
@@ -55,160 +78,91 @@ export const useSync = (babyInfo: BabyInfo | null, showToast: (msg: string) => v
     try {
       await fetch(data.gasUrl, {
         method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: "cancel", userId: data.lineUserId })
+        body: JSON.stringify({ action: "cancel", userId: data.lineUserId, syncSecret: data.syncSecret })
       });
       console.log("☁️ 雲端排程已要求取消");
     } catch (err) { console.error(err); }
   }, [babyInfo]);
 
-  const handleGoogleLogin = useCallback((callback?: (token: string) => void, forceSelect = false) => {
+  const handleGoogleLogin = useCallback(() => {
     if (!babyInfo?.googleClientId) {
-      if (forceSelect) showToast("請先在設定中輸入 Google Client ID ⚙️");
+      showToast("請先在設定中輸入 Google Client ID ⚙️");
       return;
     }
+    
     try {
-      const client = (window as any).google?.accounts.oauth2.initTokenClient({
+      const client = (window as any).google?.accounts.oauth2.initCodeClient({
         client_id: babyInfo.googleClientId,
         scope: 'https://www.googleapis.com/auth/drive.file',
-        callback: (response: any) => {
-          if (response.access_token) {
-            const expiresAt = Date.now() + response.expires_in * 1000;
-            updateToken(response.access_token, expiresAt);
-            if (forceSelect) showToast("Google 雲端連結已續約 ☁️");
-            if (callback) callback(response.access_token);
+        ux_mode: 'popup',
+        callback: async (response: any) => {
+          if (response.code) {
+            showToast("正在建立長效連結 ☁️...");
+            try {
+              await callGasProxy('auth', { code: response.code });
+              updateToken('linked');
+              showToast("Google 雲端長效連結成功 ✅");
+            } catch (err) {
+              console.error("Auth Exchange Error:", err);
+              showToast("連結失敗，請檢查 GAS 設定 ❌");
+            }
           }
         },
-        error_callback: (err: any) => {
-          if (forceSelect) showToast("Google 登入失敗 ❌");
-          console.error("Auth Error:", err);
-        }
       });
-      client.requestAccessToken({ prompt: forceSelect ? 'select_account' : '' });
+      client.requestCode();
     } catch (err) {
-      if (forceSelect) showToast("Google Auth 初始化失敗");
-      console.error(err);
+      console.error("Auth Init Error:", err);
+      showToast("Google Auth 初始化失敗");
     }
-  }, [babyInfo, showToast, updateToken]);
+  }, [babyInfo, showToast, callGasProxy, updateToken]);
 
-  const pullRecordsFromDrive = useCallback(async (overrideToken?: string): Promise<Record[]> => {
-    const token = overrideToken || accessToken;
-    if (!token || Date.now() > tokenExpire) return [];
-
+  const pullRecordsFromDrive = useCallback(async (): Promise<Record[]> => {
+    if (!accessToken) return [];
     const d = new Date();
     const dateStr = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
     const fileName = `baby_records_${dateStr}.csv`;
 
     try {
-      const folderQuery = babyInfo?.googleFolderId ? ` and '${babyInfo.googleFolderId}' in parents` : '';
-      const searchRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=name='${fileName}' and trashed=false${folderQuery}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      
-      if (!searchRes.ok) throw new Error(`Search Failed: ${searchRes.status}`);
-      
-      const searchData = await searchRes.json();
-      const existingFile = searchData.files?.[0];
-
-      if (existingFile) {
-        const fileRes = await fetch(`https://www.googleapis.com/drive/v3/files/${existingFile.id}?alt=media`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        if (!fileRes.ok) throw new Error(`Download Failed: ${fileRes.status}`);
-        const content = await fileRes.text();
-        return csvToRecords(content);
+      const result = await callGasProxy('pull', { fileName });
+      if (result.status === 'success' && result.csv) {
+        return csvToRecords(result.csv);
       }
     } catch (err) {
       console.error("Pull Records Error:", err);
-      throw err; // Propagate to fullSync
+      throw err;
     }
     return [];
-  }, [accessToken, tokenExpire, babyInfo]);
+  }, [accessToken, callGasProxy]);
 
-  const syncToDriveDirect = useCallback(async (data: Record[], overrideToken?: string) => {
-    const token = overrideToken || accessToken;
-    if (!token || Date.now() > tokenExpire) {
-      if (overrideToken) return;
-      handleGoogleLogin((newToken: string) => syncToDriveDirect(data, newToken));
-      return;
-    }
-
+  const syncToDriveDirect = useCallback(async (data: Record[]) => {
+    if (!accessToken) return;
     const d = new Date();
     const dateStr = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
     const fileName = `baby_records_${dateStr}.csv`;
     const csv = generateCSVString(data);
 
     try {
-      const folderQuery = babyInfo?.googleFolderId ? ` and '${babyInfo.googleFolderId}' in parents` : '';
-      const searchRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=name='${fileName}' and trashed=false${folderQuery}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      
-      if (!searchRes.ok) throw new Error(`Sync Search Failed: ${searchRes.status}`);
-      
-      const searchData = await searchRes.json();
-      const existingFile = searchData.files?.[0];
-
-      const metadata: any = { name: fileName, mimeType: 'text/csv' };
-      if (babyInfo?.googleFolderId && !existingFile) metadata.parents = [babyInfo.googleFolderId];
-
-      const form = new FormData();
-      form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
-      form.append('file', new Blob([csv], { type: 'text/csv' }));
-
-      let res;
-      if (existingFile) {
-        res = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${existingFile.id}?uploadType=multipart`, {
-          method: 'PATCH', headers: { Authorization: `Bearer ${token}` }, body: form
-        });
-      } else {
-        res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
-          method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form
-        });
-      }
-      
-      if (!res.ok) throw new Error(`Upload Failed: ${res.status}`);
-      console.log("☁️ Google Drive 同步完成");
+      await callGasProxy('push', { fileName, csv });
+      console.log("☁️ GAS 代理同步完成");
     } catch (err) { 
-      console.error("Drive Sync Error:", err);
+      console.error("GAS Sync Error:", err);
       throw err; 
     }
-  }, [accessToken, tokenExpire, babyInfo, handleGoogleLogin]);
+  }, [accessToken, callGasProxy]);
 
   const fullSync = useCallback(async (localRecords: Record[], onSyncComplete: (merged: Record[]) => void, options?: { silent?: boolean }) => {
-    // 關鍵修正：使用 Ref 檢查防止迴圈，不再依賴 isSyncing 狀態作為 dependency
     if (syncingRef.current) {
       pendingSyncRef.current = localRecords;
       return;
     }
     
     const isSilent = options?.silent || false;
-    setSyncError(null);
-    
-    if (!accessToken || Date.now() > tokenExpire) {
-      if (isSilent) return; 
-      handleGoogleLogin(async (newToken) => {
-        syncingRef.current = true;
-        setIsSyncing(true);
-        try {
-          const remote = await pullRecordsFromDrive(newToken);
-          const merged = mergeRecords(localRecords, remote);
-          onSyncComplete(merged);
-          await syncToDriveDirect(merged, newToken);
-        } catch (e) {
-          console.error("Full Sync Login Error:", e);
-          setSyncError("auth_failed");
-          showToast("同步失敗 ❌");
-        } finally {
-          syncingRef.current = false;
-          setIsSyncing(false);
-          checkPending();
-        }
-      });
-      return;
-    }
+    if (!accessToken) return; // 沒連結就不執行
 
+    setSyncError(null);
     syncingRef.current = true;
     setIsSyncing(true);
+
     try {
       const remote = await pullRecordsFromDrive();
       const merged = mergeRecords(localRecords, remote);
@@ -222,18 +176,13 @@ export const useSync = (babyInfo: BabyInfo | null, showToast: (msg: string) => v
     } finally {
       syncingRef.current = false;
       setIsSyncing(false);
-      checkPending();
-    }
-
-    function checkPending() {
       if (pendingSyncRef.current) {
         const nextRecords = pendingSyncRef.current;
         pendingSyncRef.current = null;
         fullSync(nextRecords, onSyncComplete, options);
       }
     }
-    // 依賴項移除 isSyncing 避免參照迴圈
-  }, [accessToken, tokenExpire, handleGoogleLogin, pullRecordsFromDrive, syncToDriveDirect, showToast]);
+  }, [accessToken, pullRecordsFromDrive, syncToDriveDirect, showToast]);
 
   return {
     accessToken,
