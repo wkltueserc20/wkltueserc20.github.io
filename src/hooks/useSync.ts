@@ -157,7 +157,7 @@ export const useSync = (babyInfo: BabyInfo | null, showToast: (msg: string) => v
     }
     
     const isSilent = options?.silent || false;
-    if (!accessToken) return; // 沒連結就不執行
+    if (!accessToken || !babyInfo) return; // 增加 babyInfo 檢查
 
     setSyncError(null);
     syncingRef.current = true;

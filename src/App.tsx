@@ -71,17 +71,18 @@ function App() {
 
   const initialSyncRef = useRef(false);
   useEffect(() => {
-    if (accessToken && !initialSyncRef.current) {
+    // 關鍵修正：必須等待 babyInfo 載入完成才能進行 GAS 代理同步
+    if (accessToken && babyInfo && !initialSyncRef.current) {
       initialSyncRef.current = true;
       fullSync(records, setAllRecords);
     }
-  }, [accessToken, fullSync, setAllRecords, records]);
+  }, [accessToken, babyInfo, fullSync, setAllRecords, records]);
 
   const recordsRef = useRef(records);
   useEffect(() => { recordsRef.current = records; }, [records]);
 
   useEffect(() => {
-    if (!accessToken) return;
+    if (!accessToken || !babyInfo) return; // 增加 babyInfo 檢查
 
     const triggerSync = () => {
       fullSync(recordsRef.current, setAllRecords, { silent: true });
