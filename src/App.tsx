@@ -28,6 +28,7 @@ import { RecordList } from './components/Records/RecordList';
 import { SettingsPanel } from './components/Settings/SettingsPanel';
 import { SyncStatus } from './components/Layout/SyncStatus';
 import { BottomSheet } from './components/Layout/BottomSheet';
+import { SleepBanner } from './components/Layout/SleepBanner';
 
 function App() {
   // --- States & Hooks ---
@@ -241,6 +242,26 @@ function App() {
     setSleepStartTime(null);
     showToast('紀錄成功 ✨');
     fullSync(newRecords, setAllRecords);
+  };
+
+  const handleFinishSleep = async () => {
+    if (!sleepStartTime) return;
+    const nowTs = Date.now();
+    const diffMins = Math.floor((nowTs - sleepStartTime) / 60000);
+    const newRecord: Record = {
+      id: nowTs.toString(),
+      type: 'sleep',
+      time: new Date(nowTs).toLocaleString('zh-TW'),
+      timestamp: sleepStartTime,
+      amount: diffMins,
+      note: `睡覺: ${formatTimeWithPeriod(sleepStartTime)} ~ ${formatTimeWithPeriod(nowTs)}`,
+      updatedAt: nowTs,
+    };
+    await addRecord(newRecord);
+    setSleepStartTime(null);
+    const finalRecords = [newRecord, ...records].sort((a, b) => b.timestamp - a.timestamp);
+    fullSync(finalRecords, setAllRecords, { silent: true });
+    showToast("寶寶起床了 ☀️ 紀錄已存檔");
   };
 
   const handleSaveRecord = (recordData: any) => {
@@ -510,6 +531,8 @@ function App() {
       </header>
 
       <main className="max-w-md mx-auto px-6 pt-8 space-y-7 font-black">
+        <SleepBanner startTime={sleepStartTime} onFinish={handleFinishSleep} />
+
         {currentTab === 'home' && (
           <>
             {nextFeed && (

@@ -118,27 +118,47 @@ export const useSync = (babyInfo: BabyInfo | null, showToast: (msg: string) => v
 
   const pullRecordsFromDrive = useCallback(async (): Promise<Record[]> => {
     if (!accessToken) return [];
+    
+    // 獲取昨日與今日的檔名
     const d = new Date();
-    const dateStr = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
-    const fileName = `baby_records_${dateStr}.csv`;
+    const todayStr = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
+    
+    const y = new Date();
+    y.setDate(y.getDate() - 1);
+    const yesterdayStr = `${y.getFullYear()}${String(y.getMonth() + 1).padStart(2, '0')}${String(y.getDate()).padStart(2, '0')}`;
+
+    const dates = [yesterdayStr, todayStr];
+    let allRemoteRecords: Record[] = [];
 
     try {
-      const result = await callGasProxy('pull', { fileName });
-      if (result.status === 'success' && result.csv) {
-        return csvToRecords(result.csv);
-      }
+      // 併行抓取昨今兩日的資料
+      const results = await Promise.all(dates.map(date => 
+        callGasProxy('pull', { fileName: `baby_records_${date}.csv` }).catch(() => ({ status: 'not_found' }))
+      ));
+
+      results.forEach(result => {
+        if (result.status === 'success' && result.csv) {
+          allRemoteRecords = mergeRecords(allRemoteRecords, csvToRecords(result.csv));
+        }
+      });
+
+      return allRemoteRecords;
     } catch (err) {
-      console.error("Pull Records Error:", err);
+      console.error("Pull Multi-day Records Error:", err);
       throw err;
     }
-    return [];
   }, [accessToken, callGasProxy]);
 
   const syncToDriveDirect = useCallback(async (data: Record[]) => {
     if (!accessToken) return;
     const d = new Date();
-    const dateStr = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
-    const fileName = `baby_records_${dateStr}.csv`;
+    const todayStr = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
+    const fileName = `baby_records_${todayStr}.csv`;
+    
+    // 注意：存檔時只存「今天」日期的紀錄到對應檔案中，
+    // 雖然全量紀錄在 IndexedDB，但雲端 CSV 仍維持每日一個。
+    // 這裡我們只過濾出屬於今天檔案的紀錄，或者維持 LWW 全量推送到當日檔也可以（因為 mergeRecords 會處理）。
+    // 為了簡單且安全，我們直接將當前 IndexedDB 的所有資料推送到當日 CSV。
     const csv = generateCSVString(data);
 
     try {

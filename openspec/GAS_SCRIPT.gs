@@ -89,7 +89,7 @@ function checkAndNotify() {
   var now = new Date().getTime();
 
   // 排除掉系統保留屬性
-  var systemKeys = ['GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'SYNC_SECRET', 'REFRESH_TOKEN', 'GOOGLE_FOLDER_ID'];
+  var systemKeys = ['GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'SYNC_SECRET', 'REFRESH_TOKEN'];
 
   allKeys.forEach(function(key) {
     if (systemKeys.indexOf(key) !== -1) return;
@@ -116,6 +116,30 @@ function checkAndNotify() {
 }
 
 // --- OAuth & Drive 代理底層 ---
+
+/**
+ * 自動尋找或建立存放資料夾
+ */
+function getTargetFolderId(token) {
+  var folderName = "育兒助手備份";
+  var query = "name='" + folderName + "' and mimeType='application/vnd.google-apps.folder' and trashed=false";
+  var res = UrlFetchApp.fetch("https://www.googleapis.com/drive/v3/files?q=" + encodeURIComponent(query), { 
+    headers: { Authorization: "Bearer " + token } 
+  });
+  var files = JSON.parse(res.getContentText()).files;
+  
+  if (files.length > 0) {
+    return files[0].id;
+  }
+  
+  // 建立新資料夾
+  var createRes = UrlFetchApp.fetch("https://www.googleapis.com/drive/v3/files", {
+    method: "post",
+    headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+    payload: JSON.stringify({ name: folderName, mimeType: "application/vnd.google-apps.folder" })
+  });
+  return JSON.parse(createRes.getContentText()).id;
+}
 
 function handleOAuthExchange(code) {
   var props = PropertiesService.getScriptProperties();
@@ -151,12 +175,12 @@ function getAccessToken() {
 
 function handlePush(fileName, csvContent) {
   var token = getAccessToken();
-  var folderId = PropertiesService.getScriptProperties().getProperty('GOOGLE_FOLDER_ID') || "";
-  var query = "name='" + fileName + "' and trashed=false" + (folderId ? " and '" + folderId + "' in parents" : "");
+  var folderId = getTargetFolderId(token);
+  var query = "name='" + fileName + "' and trashed=false and '" + folderId + "' in parents";
   var search = UrlFetchApp.fetch("https://www.googleapis.com/drive/v3/files?q=" + encodeURIComponent(query), { headers: { Authorization: "Bearer " + token } });
   var files = JSON.parse(search.getContentText()).files;
   var metadata = { name: fileName, mimeType: 'text/csv' };
-  if (folderId && files.length === 0) metadata.parents = [folderId];
+  if (files.length === 0) metadata.parents = [folderId];
 
   var boundary = "-------babytracker";
   var body = "\r\n--" + boundary + "\r\nContent-Type: application/json\r\n\r\n" + JSON.stringify(metadata) + 
@@ -168,8 +192,8 @@ function handlePush(fileName, csvContent) {
 
 function handlePull(fileName) {
   var token = getAccessToken();
-  var folderId = PropertiesService.getScriptProperties().getProperty('GOOGLE_FOLDER_ID') || "";
-  var query = "name='" + fileName + "' and trashed=false" + (folderId ? " and '" + folderId + "' in parents" : "");
+  var folderId = getTargetFolderId(token);
+  var query = "name='" + fileName + "' and trashed=false and '" + folderId + "' in parents";
   var search = UrlFetchApp.fetch("https://www.googleapis.com/drive/v3/files?q=" + encodeURIComponent(query), { headers: { Authorization: "Bearer " + token } });
   var files = JSON.parse(search.getContentText()).files;
   if (files.length > 0) {
