@@ -253,6 +253,7 @@ function App() {
       type: 'sleep',
       time: new Date(nowTs).toLocaleString('zh-TW'),
       timestamp: sleepStartTime,
+      endTimestamp: nowTs,
       amount: diffMins,
       note: `睡覺: ${formatTimeWithPeriod(sleepStartTime)} ~ ${formatTimeWithPeriod(nowTs)}`,
       updatedAt: nowTs,

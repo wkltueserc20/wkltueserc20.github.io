@@ -18,8 +18,13 @@ export const getYesterdayDateString = (dateStr: string) => {
   return date.toLocaleDateString('en-CA');
 };
 
-export const getRecordTargetTs = (r: Record) =>
-  r.type === 'sleep' && r.endTimestamp ? r.endTimestamp : r.timestamp;
+export const getRecordTargetTs = (r: Record) => {
+  if (r.type === 'sleep') {
+    if (r.endTimestamp) return r.endTimestamp;
+    if (r.amount) return r.timestamp + r.amount * 60000;
+  }
+  return r.timestamp;
+};
 
 export const formatTimeWithPeriod = (ts: number) => {
   const d = new Date(ts);
