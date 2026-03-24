@@ -62,22 +62,10 @@ export const useRecords = () => {
     }
   }, []);
 
-  const deleteRecord = useCallback(async (id: string) => {
-    try {
-      await db.records.delete(id);
-      setRecords((prev) => prev.filter((r) => r.id !== id));
-    } catch (e) {
-      console.error('Failed to delete record', e);
-    }
-  }, []);
-
   const setAllRecords = useCallback(async (newRecords: Record[]) => {
     try {
-      // For bulk updates (sync/import), we clear and refill to ensure consistency
-      await db.transaction('rw', db.records, async () => {
-        await db.records.clear();
-        await db.records.bulkAdd(newRecords);
-      });
+      // Use bulkPut to avoid clear() and ensure atomicity/no data loss during sync gaps
+      await db.records.bulkPut(newRecords);
       setRecords(newRecords.sort((a, b) => b.timestamp - a.timestamp));
     } catch (e) {
       console.error('Failed to set all records', e);
@@ -89,7 +77,6 @@ export const useRecords = () => {
     isLoading, // Added loading state for potential UI feedback
     addRecord,
     updateRecord,
-    deleteRecord,
     setAllRecords,
   };
 };

@@ -2,6 +2,7 @@ import { useState, useCallback, useRef } from 'react';
 import type { BabyInfo, Record } from '../types';
 import { generateCSVString, csvToRecords } from '../utils/csvUtils';
 import { mergeRecords } from '../utils/mergeUtils';
+import { db } from '../db/db';
 
 export const useSync = (babyInfo: BabyInfo | null, showToast: (msg: string) => void) => {
   // accessToken 這裡改為表示「是否已完成長效連結」的狀態標記
@@ -119,21 +120,17 @@ export const useSync = (babyInfo: BabyInfo | null, showToast: (msg: string) => v
   const pullRecordsFromDrive = useCallback(async (): Promise<Record[]> => {
     if (!accessToken) return [];
     
-    // 獲取昨日與今日的檔名
-    const d = new Date();
-    const todayStr = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
-    
-    const y = new Date();
-    y.setDate(y.getDate() - 1);
-    const yesterdayStr = `${y.getFullYear()}${String(y.getMonth() + 1).padStart(2, '0')}${String(y.getDate()).padStart(2, '0')}`;
-
-    const dates = [yesterdayStr, todayStr];
-    let allRemoteRecords: Record[] = [];
-
     try {
-      // 併行抓取昨今兩日的資料
-      const results = await Promise.all(dates.map(date => 
-        callGasProxy('pull', { fileName: `baby_records_${date}.csv` }).catch(() => ({ status: 'not_found' }))
+      // Step 1: 詢問 GAS 最近有變動的檔案 (Smart Detect)
+      const listResult = await callGasProxy('listRecent', {});
+      if (listResult.status !== 'success' || !listResult.files) return [];
+      
+      const filesToPull = listResult.files; // 最近變動的 5 個檔案
+      let allRemoteRecords: Record[] = [];
+
+      // Step 2: 併行抓取變動檔案
+      const results = await Promise.all(filesToPull.map((fileName: string) => 
+        callGasProxy('pull', { fileName }).catch(() => ({ status: 'not_found' }))
       ));
 
       results.forEach(result => {
@@ -144,28 +141,36 @@ export const useSync = (babyInfo: BabyInfo | null, showToast: (msg: string) => v
 
       return allRemoteRecords;
     } catch (err) {
-      console.error("Pull Multi-day Records Error:", err);
+      console.error("Pull Recent Records Error:", err);
       throw err;
     }
   }, [accessToken, callGasProxy]);
 
   const syncToDriveDirect = useCallback(async (data: Record[]) => {
     if (!accessToken) return;
-    const d = new Date();
-    const todayStr = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
-    const fileName = `baby_records_${todayStr}.csv`;
     
-    // 注意：存檔時只存「今天」日期的紀錄到對應檔案中，
-    // 雖然全量紀錄在 IndexedDB，但雲端 CSV 仍維持每日一個。
-    // 這裡我們只過濾出屬於今天檔案的紀錄，或者維持 LWW 全量推送到當日檔也可以（因為 mergeRecords 會處理）。
-    // 為了簡單且安全，我們直接將當前 IndexedDB 的所有資料推送到當日 CSV。
-    const csv = generateCSVString(data);
+    // 按日期將資料分組 (Group records by YYYYMMDD)
+    const groups: { [date: string]: Record[] } = {};
+    data.forEach(r => {
+      const d = new Date(r.timestamp);
+      const dateStr = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
+      if (!groups[dateStr]) groups[dateStr] = [];
+      groups[dateStr].push(r);
+    });
+
+    // 取得受影響的日期清單，目前限制推送最近受影響的 3 個檔案以平衡效能與完整性
+    // (通常一次操作只會影響 1-2 天，例如補登昨日紀錄)
+    const targetDates = Object.keys(groups).sort().reverse().slice(0, 3);
 
     try {
-      await callGasProxy('push', { fileName, csv });
-      console.log("☁️ GAS 代理同步完成");
+      await Promise.all(targetDates.map(async (dateStr) => {
+        const fileName = `baby_records_${dateStr}.csv`;
+        const csv = generateCSVString(groups[dateStr]);
+        await callGasProxy('push', { fileName, csv });
+      }));
+      console.log("☁️ GAS 分組同步完成");
     } catch (err) { 
-      console.error("GAS Sync Error:", err);
+      console.error("GAS Grouped Sync Error:", err);
       throw err; 
     }
   }, [accessToken, callGasProxy]);
@@ -184,10 +189,20 @@ export const useSync = (babyInfo: BabyInfo | null, showToast: (msg: string) => v
     setIsSyncing(true);
 
     try {
+      // Step 1: 拉取雲端變動資料
       const remote = await pullRecordsFromDrive();
-      const merged = mergeRecords(localRecords, remote);
+      
+      // Step 2: FRESH READ - 合併前重新讀取本地資料庫
+      // 確保同步下載期間 (1~3s) 產生的任何新紀錄都能被納入合併範圍
+      const latestLocal = await db.records.toArray();
+      
+      // Step 3: 執行 LWW 合併
+      const merged = mergeRecords(latestLocal, remote);
       onSyncComplete(merged);
+      
+      // Step 4: 推送回雲端
       await syncToDriveDirect(merged);
+      
       if (!isSilent) showToast("同步完成 ✅");
     } catch (err) {
       console.error("Full Sync Error:", err);

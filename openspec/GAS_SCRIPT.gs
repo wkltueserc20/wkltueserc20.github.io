@@ -1,16 +1,17 @@
 /**
- * 👶 育兒助手 GAS 核心 v9.0
+ * 👶 育兒助手 GAS 核心 v9.2
  * 整合功能：
  * 1. Google Drive 同步代理 (解決 PWA 跳窗問題)
  * 2. LINE 餵奶通知排程 (保留 v8.6 原有邏輯)
  * 3. 智慧授權換票 (長效 Refresh Token)
+ * 4. 變動偵測支援 (listRecent)
  */
 
 // --- 配置區 (請在「指令碼屬性」中設定) ---
 // GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, SYNC_SECRET, GOOGLE_FOLDER_ID
 
 function doGet(e) {
-  return ContentService.createTextOutput("👶 Baby Tracker GAS Backend is running! (v9.0)")
+  return ContentService.createTextOutput("👶 Baby Tracker GAS Backend is running! (v9.2)")
     .setMimeType(ContentService.MimeType.TEXT);
 }
 
@@ -32,7 +33,7 @@ function doPost(e) {
 
   // 安全檢查 (如果是同步相關動作，檢查 SYNC_SECRET)
   var SYNC_SECRET = props.getProperty('SYNC_SECRET');
-  if (['auth', 'push', 'pull'].indexOf(action) !== -1) {
+  if (['auth', 'push', 'pull', 'listRecent'].indexOf(action) !== -1) {
     if (contents.syncSecret !== SYNC_SECRET) {
       return createResponse({ error: 'Unauthorized' });
     }
@@ -47,6 +48,8 @@ function doPost(e) {
         return handlePush(contents.fileName, contents.csv);
       case 'pull':
         return handlePull(contents.fileName);
+      case 'listRecent':
+        return handleListRecent();
 
       // --- LINE 通知功能 (v8.6 原有邏輯) ---
       case 'cancel':
@@ -201,6 +204,18 @@ function handlePull(fileName) {
     return createResponse({ status: 'success', csv: res.getContentText() });
   }
   return createResponse({ status: 'not_found' });
+}
+
+function handleListRecent() {
+  var token = getAccessToken();
+  var folderId = getTargetFolderId(token);
+  // 查詢資料夾下的 CSV 檔案，按修改時間降序排序
+  var query = "'" + folderId + "' in parents and mimeType='text/csv' and trashed=false";
+  var url = "https://www.googleapis.com/drive/v3/files?q=" + encodeURIComponent(query) + "&orderBy=modifiedTime desc&pageSize=5&fields=files(name)";
+  var res = UrlFetchApp.fetch(url, { headers: { Authorization: "Bearer " + token } });
+  var data = JSON.parse(res.getContentText());
+  var fileNames = data.files.map(function(f) { return f.name; });
+  return createResponse({ status: 'success', files: fileNames });
 }
 
 function sendLinePush(token, message) {
