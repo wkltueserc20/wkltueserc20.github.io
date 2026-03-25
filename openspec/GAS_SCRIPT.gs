@@ -1,17 +1,17 @@
 /**
- * 👶 育兒助手 GAS 核心 v9.2
+ * 👶 育兒助手 GAS 核心 v9.7
  * 整合功能：
  * 1. Google Drive 同步代理 (解決 PWA 跳窗問題)
  * 2. LINE 餵奶通知排程 (保留 v8.6 原有邏輯)
  * 3. 智慧授權換票 (長效 Refresh Token)
- * 4. 變動偵測支援 (listRecent)
+ * 4. 智慧同步協定 (listRecent & batchSync)
  */
 
 // --- 配置區 (請在「指令碼屬性」中設定) ---
 // GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, SYNC_SECRET, GOOGLE_FOLDER_ID
 
 function doGet(e) {
-  return ContentService.createTextOutput("👶 Baby Tracker GAS Backend is running! (v9.2)")
+  return ContentService.createTextOutput("👶 Baby Tracker GAS Backend is running! (v9.7)")
     .setMimeType(ContentService.MimeType.TEXT);
 }
 
@@ -20,7 +20,6 @@ function doPost(e) {
   try {
     contents = JSON.parse(e.postData.contents);
   } catch (err) {
-    // 相容舊版參數格式
     var keys = Object.keys(e.parameter);
     if (keys.length > 0) {
       try { contents = JSON.parse(keys[0]); } catch (err) { contents = e.parameter; }
@@ -31,9 +30,9 @@ function doPost(e) {
   var userId = contents.userId;
   var props = PropertiesService.getScriptProperties();
 
-  // 安全檢查 (如果是同步相關動作，檢查 SYNC_SECRET)
+  // 安全檢查
   var SYNC_SECRET = props.getProperty('SYNC_SECRET');
-  if (['auth', 'push', 'pull', 'listRecent'].indexOf(action) !== -1) {
+  if (['auth', 'push', 'pull', 'listRecent', 'batchSync'].indexOf(action) !== -1) {
     if (contents.syncSecret !== SYNC_SECRET) {
       return createResponse({ error: 'Unauthorized' });
     }
@@ -41,7 +40,6 @@ function doPost(e) {
 
   try {
     switch (action) {
-      // --- 同步與授權功能 (New) ---
       case 'auth':
         return handleOAuthExchange(contents.code);
       case 'push':
@@ -50,8 +48,9 @@ function doPost(e) {
         return handlePull(contents.fileName);
       case 'listRecent':
         return handleListRecent();
+      case 'batchSync':
+        return handleBatchSync(contents.pull || [], contents.push || []);
 
-      // --- LINE 通知功能 (v8.6 原有邏輯) ---
       case 'cancel':
         if (!userId) return createResponse({ error: 'Missing UserID' });
         var raw = props.getProperty(userId);
@@ -84,6 +83,55 @@ function doPost(e) {
 }
 
 /**
+ * 批量同步處理
+ * @param {Array<{name: string, md5: string}>} pullReqs 
+ * @param {Array<{name: string, csv: string}>} pushReqs
+ */
+function handleBatchSync(pullReqs, pushReqs) {
+  var token = getAccessToken();
+  var folderId = getTargetFolderId(token);
+  var results = {};
+
+  // 1. 處理 Pull (帶指紋比對)
+  pullReqs.forEach(function(req) {
+    var fileName = req.name;
+    var clientMd5 = req.md5;
+    var fileMeta = getFileMetadata(token, folderId, fileName);
+    
+    if (!fileMeta) {
+      results[fileName] = { status: 'not_found' };
+    } else if (fileMeta.md5Checksum === clientMd5) {
+      results[fileName] = { status: 'unchanged', md5: fileMeta.md5Checksum };
+    } else {
+      // MD5 不符，抓取內容
+      var content = fetchFileContent(token, fileMeta.id);
+      results[fileName] = { status: 'updated', md5: fileMeta.md5Checksum, csv: content };
+    }
+  });
+
+  // 2. 處理 Push
+  pushReqs.forEach(function(req) {
+    handlePush(req.name, req.csv); // 復用現有的 handlePush
+  });
+
+  return createResponse({ status: 'success', results: results });
+}
+
+function getFileMetadata(token, folderId, fileName) {
+  var query = "name='" + fileName + "' and trashed=false and '" + folderId + "' in parents";
+  var url = "https://www.googleapis.com/drive/v3/files?q=" + encodeURIComponent(query) + "&fields=files(id,name,md5Checksum)";
+  var res = UrlFetchApp.fetch(url, { headers: { Authorization: "Bearer " + token } });
+  var files = JSON.parse(res.getContentText()).files;
+  return files.length > 0 ? files[0] : null;
+}
+
+function fetchFileContent(token, fileId) {
+  var url = "https://www.googleapis.com/drive/v3/files/" + fileId + "?alt=media";
+  var res = UrlFetchApp.fetch(url, { headers: { Authorization: "Bearer " + token } });
+  return res.getContentText();
+}
+
+/**
  * 每分鐘自動執行的通知檢查 (保留給觸發器使用)
  */
 function checkAndNotify() {
@@ -91,7 +139,6 @@ function checkAndNotify() {
   var allKeys = props.getKeys();
   var now = new Date().getTime();
 
-  // 排除掉系統保留屬性
   var systemKeys = ['GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'SYNC_SECRET', 'REFRESH_TOKEN'];
 
   allKeys.forEach(function(key) {
@@ -100,7 +147,7 @@ function checkAndNotify() {
       var raw = props.getProperty(key);
       if (!raw) return;
       var data = JSON.parse(raw);
-      if (!data.targetTime) return; // 確保是排程資料
+      if (!data.targetTime) return; 
 
       if (now >= data.targetTime && !data.notified) {
         var date = new Date(data.targetTime);
@@ -120,9 +167,6 @@ function checkAndNotify() {
 
 // --- OAuth & Drive 代理底層 ---
 
-/**
- * 自動尋找或建立存放資料夾
- */
 function getTargetFolderId(token) {
   var folderName = "育兒助手備份";
   var query = "name='" + folderName + "' and mimeType='application/vnd.google-apps.folder' and trashed=false";
@@ -135,7 +179,6 @@ function getTargetFolderId(token) {
     return files[0].id;
   }
   
-  // 建立新資料夾
   var createRes = UrlFetchApp.fetch("https://www.googleapis.com/drive/v3/files", {
     method: "post",
     headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
@@ -209,7 +252,6 @@ function handlePull(fileName) {
 function handleListRecent() {
   var token = getAccessToken();
   var folderId = getTargetFolderId(token);
-  // 查詢資料夾下的 CSV 檔案，按修改時間降序排序
   var query = "'" + folderId + "' in parents and mimeType='text/csv' and trashed=false";
   var url = "https://www.googleapis.com/drive/v3/files?q=" + encodeURIComponent(query) + "&orderBy=modifiedTime desc&pageSize=5&fields=files(name)";
   var res = UrlFetchApp.fetch(url, { headers: { Authorization: "Bearer " + token } });
