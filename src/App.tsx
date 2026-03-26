@@ -60,6 +60,7 @@ function App() {
     callGasApi,
     cancelGasSchedule,
     handleGoogleLogin,
+    markDateDirty,
     fullSync,
   } = useSync(babyInfo, showToast);
 
@@ -239,6 +240,7 @@ function App() {
     };
     const newRecords = [newRec, ...records].sort((a, b) => b.timestamp - a.timestamp);
     addRecord(newRec);
+    markDateDirty(newRec.timestamp);
     setSleepStartTime(null);
     showToast('紀錄成功 ✨');
     fullSync(newRecords, setAllRecords);
@@ -259,6 +261,7 @@ function App() {
       updatedAt: nowTs,
     };
     await addRecord(newRecord);
+    markDateDirty(newRecord.timestamp);
     setSleepStartTime(null);
     const finalRecords = [newRecord, ...records].sort((a, b) => b.timestamp - a.timestamp);
     fullSync(finalRecords, setAllRecords, { silent: true });
@@ -314,6 +317,7 @@ function App() {
       const target = records.find((r) => r.id === isEditing);
       const newRec = { ...target, ...base } as Record;
       updateRecord(newRec);
+      markDateDirty(ts);
       updatedRecords = records.map((r) => (r.id === isEditing ? newRec : r));
       setIsEditing(null);
       showToast('修改成功 ✅');
@@ -321,6 +325,7 @@ function App() {
       const newId = crypto.randomUUID();
       const newRec = { id: newId, ...base } as Record;
       addRecord(newRec);
+      markDateDirty(ts);
       updatedRecords = [newRec, ...records];
       showToast('新增成功 ✨');
     }
@@ -334,7 +339,8 @@ function App() {
       if (!target) return;
       const updatedRec = { ...target, isDeleted: true, updatedAt: Date.now() };
       updateRecord(updatedRec);
-      
+      markDateDirty(target.timestamp);
+
       const newRecs = records.map(r => r.id === id ? updatedRec : r);
       showToast('已刪除 🗑️');
       fullSync(newRecs, setAllRecords);

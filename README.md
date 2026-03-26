@@ -1,4 +1,4 @@
-# 👶 育兒助手 - 現代化高品質 Web App (v9.7)
+# 👶 育兒助手 - 現代化高品質 Web App (v9.8)
 
 這是一個專為父母設計的高品質育兒紀錄助手。採用 **React 19** + **Vite** 構建，具備 **PWA** 離線能力與 **Google Drive** 自動雙向同步。
 
@@ -7,10 +7,10 @@
 
 ---
 
-## ✨ 核心亮點 (v9.7)
+## ✨ 核心亮點 (v9.8)
 
-- **🚀 極速同步協定 (Smart Batch)**：將通訊往返由 7 次縮減至 **1 次**，並引入 MD5 指紋校驗，僅下載變動資料，同步速度提升 5 倍。
-- **🔄 智慧日期分群**：自動偵測雲端變動檔案並進行精準日期推送，徹底修正同步競爭風險。
+- **⚡ 極速 SmartSync 協定**：將 Client-GAS 通訊從 2 次 HTTP 請求合併為 **1 次**，GAS 內部使用 `fetchAll()` 並行化所有 Drive API 呼叫，同步時間從 20+ 秒大幅降至 3-5 秒。
+- **🔄 自適應推送 (Dirty Date Tracking)**：自動追蹤有變更的日期，不再固定只推送今天和昨天，補登舊日期紀錄也能正確同步。
 - **☀️ 睡眠日期修正**：以起床時間作為歸屬，完美處理跨夜覺統計。
 - **💤 睡眠即時監控**：首頁動態橫幅顯示入睡時長，支援一鍵起床紀錄。
 - **📂 雲端自動歸檔**：Google Drive 備份自動收納於專屬資料夾，整潔有序。
@@ -39,7 +39,7 @@ npm run dev
 
 - **Frontend**: React 19, TypeScript, Tailwind CSS v4, Framer Motion
 - **Database**: IndexedDB (via Dexie.js)
-- **Synchronization**: Google Drive API + Google Apps Script (GAS) Proxy
+- **Synchronization**: Google Drive API + Google Apps Script (GAS) SmartSync Proxy (fetchAll parallel)
 - **PWA**: Service Worker (via vite-plugin-pwa) for offline support
 
 ---

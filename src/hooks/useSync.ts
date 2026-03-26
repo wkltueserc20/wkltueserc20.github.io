@@ -8,11 +8,17 @@ export const useSync = (babyInfo: BabyInfo | null, showToast: (msg: string) => v
   const [accessToken, setAccessToken] = useState<string | null>(() => localStorage.getItem('google-access-token'));
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
-  
+
   // Fingerprint Cache: fileName -> md5Checksum
   const [fingerprints, setFingerprints] = useState<Record<string, string>>(() => {
     const saved = localStorage.getItem('baby-sync-fingerprints');
     return saved ? JSON.parse(saved) : {};
+  });
+
+  // Dirty Dates: 追蹤有本地異動但尚未同步的日期
+  const [dirtyDates, setDirtyDates] = useState<Set<string>>(() => {
+    const saved = localStorage.getItem('baby-sync-dirty-dates');
+    return saved ? new Set(JSON.parse(saved)) : new Set();
   });
 
   const syncingRef = useRef(false);
@@ -25,21 +31,39 @@ export const useSync = (babyInfo: BabyInfo | null, showToast: (msg: string) => v
   }, []);
 
   const updateFingerprints = useCallback((newFingerprints: Record<string, string>) => {
-    const updated = { ...fingerprints, ...newFingerprints };
-    setFingerprints(updated);
-    localStorage.setItem('baby-sync-fingerprints', JSON.stringify(updated));
-  }, [fingerprints]);
+    setFingerprints(prev => {
+      const updated = { ...prev, ...newFingerprints };
+      localStorage.setItem('baby-sync-fingerprints', JSON.stringify(updated));
+      return updated;
+    });
+  }, []);
+
+  const saveDirtyDates = useCallback((dates: Set<string>) => {
+    setDirtyDates(dates);
+    localStorage.setItem('baby-sync-dirty-dates', JSON.stringify([...dates]));
+  }, []);
+
+  const markDateDirty = useCallback((timestamp: number) => {
+    const d = new Date(timestamp);
+    const dateStr = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
+    setDirtyDates(prev => {
+      const next = new Set(prev);
+      next.add(dateStr);
+      localStorage.setItem('baby-sync-dirty-dates', JSON.stringify([...next]));
+      return next;
+    });
+  }, []);
 
   // --- GAS 代理請求輔助函式 ---
   const callGasProxy = useCallback(async (action: string, payload: any) => {
     if (!babyInfo?.gasUrl) throw new Error("Missing GAS URL");
-    
+
     const response = await fetch(babyInfo.gasUrl, {
       method: 'POST',
       body: JSON.stringify({
         ...payload,
         action,
-        syncSecret: babyInfo.syncSecret 
+        syncSecret: babyInfo.syncSecret
       })
     });
 
@@ -49,7 +73,7 @@ export const useSync = (babyInfo: BabyInfo | null, showToast: (msg: string) => v
     return result;
   }, [babyInfo]);
 
-  // --- LINE 動作與 GAS 其它 API (補回遺失的函式) ---
+  // --- LINE 動作與 GAS 其它 API ---
   const sendLineAction = useCallback(async (message: string, isAuto = false) => {
     const data = babyInfo;
     if (!data?.lineToken || !data?.lineUserId || !data?.lineEnabled) return;
@@ -72,13 +96,13 @@ export const useSync = (babyInfo: BabyInfo | null, showToast: (msg: string) => v
     try {
       await fetch(data.gasUrl, {
         method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          action: isTest ? "test" : "schedule", 
-          token: data.lineToken, 
-          userId: data.lineUserId, 
-          targetTime: targetTs, 
+        body: JSON.stringify({
+          action: isTest ? "test" : "schedule",
+          token: data.lineToken,
+          userId: data.lineUserId,
+          targetTime: targetTs,
           babyName: data.name,
-          syncSecret: data.syncSecret 
+          syncSecret: data.syncSecret
         })
       });
       if (isTest) showToast("GAS 指令已送出，請查收 LINE 🚀");
@@ -102,7 +126,7 @@ export const useSync = (babyInfo: BabyInfo | null, showToast: (msg: string) => v
       showToast("請先在設定中輸入 Google Client ID ⚙️");
       return;
     }
-    
+
     try {
       const client = (window as any).google?.accounts.oauth2.initCodeClient({
         client_id: babyInfo.googleClientId,
@@ -129,25 +153,25 @@ export const useSync = (babyInfo: BabyInfo | null, showToast: (msg: string) => v
     }
   }, [babyInfo, showToast, callGasProxy, updateToken]);
 
-  // --- 批量同步核心邏輯 ---
-  const callBatchSync = useCallback(async (pullFiles: string[], pushData: {name: string, csv: string}[]) => {
-    const pullReqs = pullFiles.map(name => ({ name, md5: fingerprints[name] || "" }));
-    
-    const result = await callGasProxy('batchSync', {
-      pull: pullReqs,
+  // --- smartSync: 單一請求完成 list + pull + push ---
+  const callSmartSync = useCallback(async (pushData: {name: string, csv: string}[]) => {
+    const result = await callGasProxy('smartSync', {
+      fingerprints,
       push: pushData
     });
 
-    if (result.status === 'success' && result.results) {
+    if (result.status === 'success') {
       const remoteRecords: BabyRecord[] = [];
       const newFingerprints: Record<string, string> = {};
 
-      Object.entries(result.results).forEach(([fileName, res]: [string, any]) => {
-        if (res.md5) newFingerprints[fileName] = res.md5;
-        if (res.status === 'updated' && res.csv) {
-          remoteRecords.push(...csvToRecords(res.csv));
-        }
-      });
+      if (result.results) {
+        Object.entries(result.results).forEach(([fileName, res]: [string, any]) => {
+          if (res.md5) newFingerprints[fileName] = res.md5;
+          if (res.status === 'updated' && res.csv) {
+            remoteRecords.push(...csvToRecords(res.csv));
+          }
+        });
+      }
 
       updateFingerprints(newFingerprints);
       return remoteRecords;
@@ -155,22 +179,20 @@ export const useSync = (babyInfo: BabyInfo | null, showToast: (msg: string) => v
     return [];
   }, [callGasProxy, fingerprints, updateFingerprints]);
 
-  // --- 輔助同步函式 ---
+  // --- 保留舊版輔助函式供向後相容 ---
   const pullRecordsFromDrive = useCallback(async (): Promise<BabyRecord[]> => {
     if (!accessToken) return [];
     try {
-      const listResult = await callGasProxy('listRecent', {});
-      if (listResult.status !== 'success' || !listResult.files) return [];
-      return await callBatchSync(listResult.files, []);
+      return await callSmartSync([]);
     } catch (err) {
       console.error("Pull Recent Records Error:", err);
       throw err;
     }
-  }, [accessToken, callGasProxy, callBatchSync]);
+  }, [accessToken, callSmartSync]);
 
   const syncToDriveDirect = useCallback(async (data: BabyRecord[]) => {
     if (!accessToken) return;
-    
+
     const groups: Record<string, BabyRecord[]> = {};
     data.forEach(r => {
       const d = new Date(r.timestamp);
@@ -184,32 +206,30 @@ export const useSync = (babyInfo: BabyInfo | null, showToast: (msg: string) => v
     const yesterday = new Date(today);
     yesterday.setDate(today.getDate() - 1);
     const yesterdayStr = `${yesterday.getFullYear()}${String(yesterday.getMonth() + 1).padStart(2, '0')}${String(yesterday.getDate()).padStart(2, '0')}`;
-    
+
     const pushDates = Array.from(new Set([todayStr, yesterdayStr]));
     const pushData = pushDates
       .filter(d => groups[d])
       .map(d => ({ name: `baby_records_${d}.csv`, csv: generateCSVString(groups[d]) }));
 
-    await callBatchSync([], pushData);
-  }, [accessToken, callBatchSync]);
+    await callSmartSync(pushData);
+  }, [accessToken, callSmartSync]);
 
   const fullSync = useCallback(async (localRecords: BabyRecord[], onSyncComplete: (merged: BabyRecord[]) => void, options?: { silent?: boolean }) => {
     if (syncingRef.current) {
       pendingSyncRef.current = localRecords;
       return;
     }
-    
+
     const isSilent = options?.silent || false;
-    if (!accessToken || !babyInfo) return; 
+    if (!accessToken || !babyInfo) return;
 
     setSyncError(null);
     syncingRef.current = true;
     setIsSyncing(true);
 
     try {
-      const listResult = await callGasProxy('listRecent', {});
-      const recentFiles = (listResult.status === 'success' && listResult.files) ? listResult.files : [];
-
+      // 從 IndexedDB 讀取最新本地資料並按日期分組
       const groups: Record<string, BabyRecord[]> = {};
       const latestLocal = await db.records.toArray();
       latestLocal.forEach(r => {
@@ -219,25 +239,35 @@ export const useSync = (babyInfo: BabyInfo | null, showToast: (msg: string) => v
         groups[dateStr].push(r);
       });
 
+      // 根據 dirtyDates 產生 push 資料（自適應推送）
+      // 若 dirtyDates 為空（例如 silent sync），至少推送 today + yesterday
       const today = new Date();
       const todayStr = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}`;
       const yesterday = new Date(today);
       yesterday.setDate(today.getDate() - 1);
       const yesterdayStr = `${yesterday.getFullYear()}${String(yesterday.getMonth() + 1).padStart(2, '0')}${String(yesterday.getDate()).padStart(2, '0')}`;
-      
-      const pushDates = Array.from(new Set([todayStr, yesterdayStr]));
-      const pushData = pushDates
+
+      const pushDateSet = new Set(dirtyDates);
+      pushDateSet.add(todayStr);
+      pushDateSet.add(yesterdayStr);
+
+      const pushData = Array.from(pushDateSet)
         .filter(d => groups[d])
         .map(d => ({ name: `baby_records_${d}.csv`, csv: generateCSVString(groups[d]) }));
 
-      const remoteUpdate = await callBatchSync(recentFiles, pushData);
+      // 單一 smartSync 請求完成 list + pull + push
+      const remoteUpdate = await callSmartSync(pushData);
       const finalMerged = mergeRecords(latestLocal, remoteUpdate);
       onSyncComplete(finalMerged);
-      
+
+      // 同步成功，清空 dirtyDates
+      saveDirtyDates(new Set());
+
       if (!isSilent) showToast("同步完成 ✅");
     } catch (err) {
       console.error("Full Sync Error:", err);
       setSyncError("sync_failed");
+      // 同步失敗，保留 dirtyDates
       if (!isSilent) showToast("同步失敗 ❌");
     } finally {
       syncingRef.current = false;
@@ -248,12 +278,13 @@ export const useSync = (babyInfo: BabyInfo | null, showToast: (msg: string) => v
         fullSync(nextRecords, onSyncComplete, options);
       }
     }
-  }, [accessToken, babyInfo, callGasProxy, callBatchSync, showToast]);
+  }, [accessToken, babyInfo, dirtyDates, callSmartSync, saveDirtyDates, showToast]);
 
   return {
     accessToken,
     isSyncing,
     syncError,
+    markDateDirty,
     sendLineAction,
     callGasApi,
     cancelGasSchedule,

@@ -1,6 +1,13 @@
-# 👶 育兒助手 - 功能與規格手冊 (v9.7)
+# 👶 育兒助手 - 功能與規格手冊 (v9.8)
 
 本文件詳述了「育兒助手」網頁應用的目前版本功能與 LINE 通知設定注意事項。
+
+## 🛠 v9.8 更新內容 (2026-03-26)
+1. **SmartSync 極速同步協定**：全面重構同步架構。將 `listRecent` + `batchSync` 兩次 HTTP 請求合併為單一 `smartSync` 請求，GAS 端 token 與 folderId 僅取得一次（原本重複 4 次），同步時間從 20+ 秒降至 3-5 秒。
+2. **fetchAll 並行化**：GAS 端改用 `UrlFetchApp.fetchAll()` 並行執行所有 Google Drive API 呼叫（metadata 查詢、檔案下載、檔案上傳），消除逐一序列化的瓶頸。
+3. **Dirty Date 自適應推送**：Client 端追蹤所有有本地異動的日期，推送範圍不再固定為今天+昨天。補登舊日期紀錄後也能正確同步給其他裝置。
+4. **Partial Failure 容錯**：GAS 端 fetchAll 任一檔案失敗不影響其他檔案處理，回報 per-file 狀態。
+5. **向後相容**：保留舊版 `listRecent` 和 `batchSync` action，確保新舊版 Client 皆可運作。
 
 ## 🛠 v9.7 更新內容 (2026-03-25)
 1. **極速同步協定 (Smart Batch)**：全面重構同步通訊邏輯。原本需要多次往返（listRecent + 多個 pull + 多個 push）的流程，現在整合為單次 `batchSync` 請求。
@@ -69,7 +76,7 @@
 ---
 
 ## 🛠 技術規格
-- **版本**：v9.7 (20260325)
+- **版本**：v9.8 (20260326)
 - **技術棧**：React 19, TypeScript, Vite, Tailwind CSS v4, Framer Motion.
 - **雲端**：Google Apps Script (GAS) 作為背景計時器與 **同步代理伺服器**。
 - **儲存**：IndexedDB (Dexie) 本地儲存與 Google Drive 雲端雙向同步 (via GAS Proxy)。

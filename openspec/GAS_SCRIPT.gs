@@ -1,17 +1,17 @@
 /**
- * 👶 育兒助手 GAS 核心 v9.7
+ * 👶 育兒助手 GAS 核心 v9.8
  * 整合功能：
  * 1. Google Drive 同步代理 (解決 PWA 跳窗問題)
  * 2. LINE 餵奶通知排程 (保留 v8.6 原有邏輯)
  * 3. 智慧授權換票 (長效 Refresh Token)
- * 4. 智慧同步協定 (listRecent & batchSync)
+ * 4. 智慧同步協定 (smartSync: 單一請求 + fetchAll 並行)
  */
 
 // --- 配置區 (請在「指令碼屬性」中設定) ---
 // GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, SYNC_SECRET, GOOGLE_FOLDER_ID
 
 function doGet(e) {
-  return ContentService.createTextOutput("👶 Baby Tracker GAS Backend is running! (v9.7)")
+  return ContentService.createTextOutput("👶 Baby Tracker GAS Backend is running! (v9.8)")
     .setMimeType(ContentService.MimeType.TEXT);
 }
 
@@ -32,7 +32,7 @@ function doPost(e) {
 
   // 安全檢查
   var SYNC_SECRET = props.getProperty('SYNC_SECRET');
-  if (['auth', 'push', 'pull', 'listRecent', 'batchSync'].indexOf(action) !== -1) {
+  if (['auth', 'push', 'pull', 'listRecent', 'batchSync', 'smartSync'].indexOf(action) !== -1) {
     if (contents.syncSecret !== SYNC_SECRET) {
       return createResponse({ error: 'Unauthorized' });
     }
@@ -50,6 +50,8 @@ function doPost(e) {
         return handleListRecent();
       case 'batchSync':
         return handleBatchSync(contents.pull || [], contents.push || []);
+      case 'smartSync':
+        return handleSmartSync(contents.fingerprints || {}, contents.push || []);
 
       case 'cancel':
         if (!userId) return createResponse({ error: 'Missing UserID' });
@@ -83,8 +85,142 @@ function doPost(e) {
 }
 
 /**
- * 批量同步處理
- * @param {Array<{name: string, md5: string}>} pullReqs 
+ * 智慧同步 v9.8：單一請求完成 list + pull + push，共享 token/folderId，fetchAll 並行化
+ * @param {Object} fingerprints - Client 端的 fileName → md5 快取
+ * @param {Array<{name: string, csv: string}>} pushReqs - 要推送的 CSV 資料
+ */
+function handleSmartSync(fingerprints, pushReqs) {
+  var token = getAccessToken();
+  var folderId = getTargetFolderId(token);
+  var authHeader = { Authorization: "Bearer " + token };
+  var results = {};
+
+  // 1. List recent files (同 handleListRecent 邏輯)
+  var listQuery = "'" + folderId + "' in parents and mimeType='text/csv' and trashed=false";
+  var listUrl = "https://www.googleapis.com/drive/v3/files?q=" + encodeURIComponent(listQuery) + "&orderBy=modifiedTime desc&pageSize=5&fields=files(name)";
+  var listRes = UrlFetchApp.fetch(listUrl, { headers: authHeader });
+  var recentFiles = JSON.parse(listRes.getContentText()).files.map(function(f) { return f.name; });
+
+  // 2. Pull: 並行查詢所有檔案的 metadata
+  if (recentFiles.length > 0) {
+    var metaRequests = recentFiles.map(function(fileName) {
+      var query = "name='" + fileName + "' and trashed=false and '" + folderId + "' in parents";
+      return {
+        url: "https://www.googleapis.com/drive/v3/files?q=" + encodeURIComponent(query) + "&fields=files(id,name,md5Checksum)",
+        headers: authHeader,
+        muteHttpExceptions: true
+      };
+    });
+    var metaResponses = UrlFetchApp.fetchAll(metaRequests);
+
+    // 解析 metadata，找出需要下載的檔案
+    var filesToDownload = [];
+    for (var i = 0; i < recentFiles.length; i++) {
+      var fileName = recentFiles[i];
+      try {
+        if (metaResponses[i].getResponseCode() !== 200) {
+          results[fileName] = { status: 'error', message: 'metadata fetch failed' };
+          continue;
+        }
+        var files = JSON.parse(metaResponses[i].getContentText()).files;
+        if (files.length === 0) {
+          results[fileName] = { status: 'not_found' };
+        } else if (files[0].md5Checksum === (fingerprints[fileName] || "")) {
+          results[fileName] = { status: 'unchanged', md5: files[0].md5Checksum };
+        } else {
+          filesToDownload.push({ fileName: fileName, fileId: files[0].id, md5: files[0].md5Checksum });
+        }
+      } catch (e) {
+        results[fileName] = { status: 'error', message: e.toString() };
+      }
+    }
+
+    // 並行下載有變更的檔案
+    if (filesToDownload.length > 0) {
+      var dlRequests = filesToDownload.map(function(f) {
+        return {
+          url: "https://www.googleapis.com/drive/v3/files/" + f.fileId + "?alt=media",
+          headers: authHeader,
+          muteHttpExceptions: true
+        };
+      });
+      var dlResponses = UrlFetchApp.fetchAll(dlRequests);
+
+      for (var j = 0; j < filesToDownload.length; j++) {
+        var dl = filesToDownload[j];
+        try {
+          if (dlResponses[j].getResponseCode() === 200) {
+            results[dl.fileName] = { status: 'updated', md5: dl.md5, csv: dlResponses[j].getContentText() };
+          } else {
+            results[dl.fileName] = { status: 'error', message: 'download failed: ' + dlResponses[j].getResponseCode() };
+          }
+        } catch (e) {
+          results[dl.fileName] = { status: 'error', message: e.toString() };
+        }
+      }
+    }
+  }
+
+  // 3. Push: 並行搜尋既有檔案
+  if (pushReqs.length > 0) {
+    var searchRequests = pushReqs.map(function(req) {
+      var query = "name='" + req.name + "' and trashed=false and '" + folderId + "' in parents";
+      return {
+        url: "https://www.googleapis.com/drive/v3/files?q=" + encodeURIComponent(query),
+        headers: authHeader,
+        muteHttpExceptions: true
+      };
+    });
+    var searchResponses = UrlFetchApp.fetchAll(searchRequests);
+
+    // 並行上傳所有檔案
+    var uploadRequests = [];
+    var uploadNames = [];
+    var boundary = "-------babytracker";
+    for (var k = 0; k < pushReqs.length; k++) {
+      try {
+        var existingFiles = (searchResponses[k].getResponseCode() === 200)
+          ? JSON.parse(searchResponses[k].getContentText()).files
+          : [];
+        var metadata = { name: pushReqs[k].name, mimeType: 'text/csv' };
+        var isUpdate = existingFiles.length > 0;
+        if (!isUpdate) metadata.parents = [folderId];
+
+        var body = "\r\n--" + boundary + "\r\nContent-Type: application/json\r\n\r\n" + JSON.stringify(metadata) +
+                   "\r\n--" + boundary + "\r\nContent-Type: text/csv\r\n\r\n" + pushReqs[k].csv + "\r\n--" + boundary + "--";
+        var uploadUrl = isUpdate
+          ? "https://www.googleapis.com/upload/drive/v3/files/" + existingFiles[0].id + "?uploadType=multipart"
+          : "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart";
+
+        uploadRequests.push({
+          url: uploadUrl,
+          method: isUpdate ? "patch" : "post",
+          headers: { Authorization: "Bearer " + token, "Content-Type": 'multipart/related; boundary="' + boundary + '"' },
+          payload: body,
+          muteHttpExceptions: true
+        });
+        uploadNames.push(pushReqs[k].name);
+      } catch (e) {
+        console.error("Push prepare error for " + pushReqs[k].name + ": " + e.toString());
+      }
+    }
+
+    if (uploadRequests.length > 0) {
+      var uploadResponses = UrlFetchApp.fetchAll(uploadRequests);
+      for (var m = 0; m < uploadResponses.length; m++) {
+        if (uploadResponses[m].getResponseCode() >= 400) {
+          console.error("Push failed for " + uploadNames[m] + ": " + uploadResponses[m].getResponseCode());
+        }
+      }
+    }
+  }
+
+  return createResponse({ status: 'success', files: recentFiles, results: results });
+}
+
+/**
+ * 批量同步處理 (舊版，保留向後相容)
+ * @param {Array<{name: string, md5: string}>} pullReqs
  * @param {Array<{name: string, csv: string}>} pushReqs
  */
 function handleBatchSync(pullReqs, pushReqs) {
