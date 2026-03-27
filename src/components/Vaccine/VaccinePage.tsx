@@ -22,6 +22,8 @@ export const VaccinePage: React.FC<VaccinePageProps> = ({
   const [editRecord, setEditRecord] = useState<Record | null>(null);
   const [editDate, setEditDate] = useState('');
   const [editNote, setEditNote] = useState('');
+  const [confirmDoneRecord, setConfirmDoneRecord] = useState<Record | null>(null);
+  const [confirmDoneDate, setConfirmDoneDate] = useState('');
 
   const vaccineRecords = useMemo(() =>
     records.filter(r => r.type === 'vaccine' && !r.isDeleted).sort((a, b) => a.timestamp - b.timestamp),
@@ -252,7 +254,7 @@ export const VaccinePage: React.FC<VaccinePageProps> = ({
                     </div>
                   </div>
                   <button
-                    onClick={() => onMarkDone(r, Date.now())}
+                    onClick={() => { setConfirmDoneRecord(r); setConfirmDoneDate(formatLocalValue(new Date())); }}
                     className="px-4 py-2 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-xl text-xs active:scale-95 transition-all font-semibold"
                   >
                     已打
@@ -263,6 +265,38 @@ export const VaccinePage: React.FC<VaccinePageProps> = ({
           </div>
         )}
       </div>
+
+      {/* Confirm Done Modal */}
+      {confirmDoneRecord && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center p-6" onClick={() => setConfirmDoneRecord(null)}>
+          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" />
+          <div className="relative bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-2xl max-w-sm w-full space-y-4" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center">
+              <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">確認施打日期</span>
+              <button onClick={() => setConfirmDoneRecord(null)} className="text-slate-400 active:scale-90">✕</button>
+            </div>
+            <div className="text-xs text-slate-500 dark:text-slate-400 font-semibold">{confirmDoneRecord.subType} {confirmDoneRecord.label}</div>
+            <div>
+              <label className="text-xs text-slate-400 uppercase tracking-widest font-semibold block mb-1.5">施打日期</label>
+              <input
+                type="datetime-local"
+                value={confirmDoneDate}
+                onChange={e => setConfirmDoneDate(e.target.value)}
+                className="w-full p-3.5 bg-slate-50 dark:bg-slate-700 dark:text-slate-200 rounded-xl outline-none text-sm border border-slate-100 dark:border-slate-600"
+              />
+            </div>
+            <button
+              onClick={() => {
+                const ts = new Date(confirmDoneDate).getTime();
+                if (!isNaN(ts)) { onMarkDone(confirmDoneRecord, ts); setConfirmDoneRecord(null); }
+              }}
+              className="w-full py-3.5 bg-emerald-600 text-white rounded-xl text-sm font-semibold active:scale-95 transition-all"
+            >
+              確認已打 ✅
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Edit Modal */}
       {editRecord && (

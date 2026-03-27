@@ -124,8 +124,13 @@ function App() {
     const ySleepMins = yesterdayRecords.reduce((acc, curr) => acc + (curr.type === 'sleep' ? curr.amount || 0 : 0), 0);
 
     const latestGrowth = records.find((r) => !r.isDeleted && r.type === 'growth');
-    const daysSinceGrowth = latestGrowth 
+    const daysSinceGrowth = latestGrowth
       ? Math.floor((new Date(searchDate).getTime() - latestGrowth.timestamp) / MS_PER_DAY)
+      : null;
+
+    const tempRecords = dayRecords.filter(r => r.type === 'temperature');
+    const maxTemp = tempRecords.length > 0
+      ? Math.max(...tempRecords.map(r => r.amount || 0))
       : null;
 
     return {
@@ -135,6 +140,8 @@ function App() {
       maxSleepSession,
       latestGrowth,
       daysSinceGrowth,
+      maxTemp,
+      tempCount: tempRecords.length,
       yesterday: {
         milkTotal: yMilkTotal,
         sleepMins: ySleepMins
