@@ -8,7 +8,7 @@ interface VaccinePageProps {
   babyInfo: BabyInfo;
   onAddVaccine: (vaccine: Omit<Record, 'id' | 'time' | 'updatedAt'>) => void;
   onMarkDone: (record: Record, actualDate: number) => void;
-  onEditVaccine: (record: Record, newEndTimestamp: number, newNote: string) => void;
+  onEditVaccine: (record: Record, newEndTimestamp: number, newNote: string, newSubType: string, newLabel: string) => void;
 }
 
 export const VaccinePage: React.FC<VaccinePageProps> = ({
@@ -22,6 +22,8 @@ export const VaccinePage: React.FC<VaccinePageProps> = ({
   const [editRecord, setEditRecord] = useState<Record | null>(null);
   const [editDate, setEditDate] = useState('');
   const [editNote, setEditNote] = useState('');
+  const [editSubType, setEditSubType] = useState('');
+  const [editLabel, setEditLabel] = useState('');
   const [confirmDoneRecord, setConfirmDoneRecord] = useState<Record | null>(null);
   const [confirmDoneDate, setConfirmDoneDate] = useState('');
 
@@ -74,13 +76,15 @@ export const VaccinePage: React.FC<VaccinePageProps> = ({
     setEditRecord(r);
     setEditDate(r.endTimestamp ? formatLocalValue(new Date(r.endTimestamp)) : formatLocalValue(new Date()));
     setEditNote(r.note || '');
+    setEditSubType(r.subType || '');
+    setEditLabel(r.label || '');
   };
 
   const handleSaveEdit = () => {
     if (!editRecord) return;
     const ts = new Date(editDate).getTime();
     if (isNaN(ts)) return;
-    onEditVaccine(editRecord, ts, editNote);
+    onEditVaccine(editRecord, ts, editNote, editSubType, editLabel);
     setEditRecord(null);
   };
 
@@ -307,8 +311,29 @@ export const VaccinePage: React.FC<VaccinePageProps> = ({
               <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">修改施打紀錄</span>
               <button onClick={() => setEditRecord(null)} className="text-slate-400 active:scale-90">✕</button>
             </div>
-            <div className="text-xs text-slate-500 dark:text-slate-400 font-semibold">{editRecord.subType} {editRecord.label}</div>
             <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-xs text-slate-400 uppercase tracking-widest font-semibold block mb-1.5">疫苗名稱</label>
+                  <input
+                    type="text"
+                    value={editSubType}
+                    onChange={e => setEditSubType(e.target.value)}
+                    placeholder="疫苗名稱"
+                    className="w-full p-3.5 bg-slate-50 dark:bg-slate-700 dark:text-slate-200 rounded-xl outline-none text-sm border border-slate-100 dark:border-slate-600"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-slate-400 uppercase tracking-widest font-semibold block mb-1.5">劑次</label>
+                  <input
+                    type="text"
+                    value={editLabel}
+                    onChange={e => setEditLabel(e.target.value)}
+                    placeholder="第1劑"
+                    className="w-full p-3.5 bg-slate-50 dark:bg-slate-700 dark:text-slate-200 rounded-xl outline-none text-sm border border-slate-100 dark:border-slate-600"
+                  />
+                </div>
+              </div>
               <div>
                 <label className="text-xs text-slate-400 uppercase tracking-widest font-semibold block mb-1.5">施打日期</label>
                 <input

@@ -311,8 +311,8 @@ function App() {
     showToast(`${record.subType} ${record.label} 已施打 ✅`);
   };
 
-  const handleEditVaccine = (record: Record, newEndTimestamp: number, newNote: string) => {
-    const updatedRec = { ...record, endTimestamp: newEndTimestamp, note: newNote, updatedAt: Date.now() };
+  const handleEditVaccine = (record: Record, newEndTimestamp: number, newNote: string, newSubType: string, newLabel: string) => {
+    const updatedRec = { ...record, endTimestamp: newEndTimestamp, note: newNote, subType: newSubType, label: newLabel, updatedAt: Date.now() };
     updateRecord(updatedRec);
     haptic();
     const updated = records.map(r => r.id === record.id ? updatedRec : r);
