@@ -154,26 +154,47 @@ export const VaccinePage: React.FC<VaccinePageProps> = ({
         </h3>
         {completed.length === 0 ? (
           <p className="text-xs text-slate-300 text-center py-4">尚無紀錄</p>
-        ) : (
-          <div className="space-y-2">
-            {completed.map(r => (
-              <div key={r.id} className="bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-100 dark:border-slate-700 shadow-sm flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-900/30 flex items-center justify-center text-lg flex-shrink-0">✅</div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-semibold text-slate-800 dark:text-slate-200">{r.subType} {r.label}</div>
-                  <div className="text-xs text-slate-400">{formatDate(r.endTimestamp!)} 施打</div>
-                  {r.note && <div className="text-xs text-slate-400 italic mt-0.5">{r.note}</div>}
+        ) : (() => {
+          const groups: { dateKey: string; label: string; items: typeof completed }[] = [];
+          completed.slice().sort((a, b) => b.endTimestamp! - a.endTimestamp!).forEach(r => {
+            const dateKey = new Date(r.endTimestamp!).toLocaleDateString('en-CA');
+            const last = groups[groups.length - 1];
+            if (last && last.dateKey === dateKey) {
+              last.items.push(r);
+            } else {
+              groups.push({ dateKey, label: formatDate(r.endTimestamp!), items: [r] });
+            }
+          });
+          return (
+            <div className="space-y-4">
+              {groups.map(group => (
+                <div key={group.dateKey}>
+                  <div className="flex items-center gap-2 mb-2 px-1">
+                    <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">{group.label}</span>
+                    <div className="flex-1 h-px bg-emerald-100 dark:bg-emerald-900/40" />
+                  </div>
+                  <div className="border-l-2 border-emerald-200 dark:border-emerald-800 ml-1 pl-3 space-y-2">
+                    {group.items.map(r => (
+                      <div key={r.id} className="bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-100 dark:border-slate-700 shadow-sm flex items-center gap-3">
+                        <div className="text-lg flex-shrink-0">✅</div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-semibold text-slate-800 dark:text-slate-200">{r.subType} {r.label}</div>
+                          {r.note && <div className="text-xs text-slate-400 italic mt-0.5">{r.note}</div>}
+                        </div>
+                        <button
+                          onClick={() => handleOpenEdit(r)}
+                          className="px-3 py-1.5 bg-slate-50 dark:bg-slate-700 text-slate-500 dark:text-slate-400 rounded-xl text-xs active:scale-95 transition-all font-semibold flex-shrink-0"
+                        >
+                          編輯
+                        </button>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-                <button
-                  onClick={() => handleOpenEdit(r)}
-                  className="px-3 py-1.5 bg-slate-50 dark:bg-slate-700 text-slate-500 dark:text-slate-400 rounded-xl text-xs active:scale-95 transition-all font-semibold flex-shrink-0"
-                >
-                  編輯
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
+              ))}
+            </div>
+          );
+        })()}
       </div>
 
       {/* Pending */}
