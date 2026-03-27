@@ -11,6 +11,7 @@ interface SettingsPanelProps {
   isSyncing?: boolean;
   syncError?: string | null;
   onFullSync?: () => void;
+  onForceFullSync?: () => void;
   handleExportCSV: () => void;
   handleImportCSV: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onImageUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
@@ -18,7 +19,7 @@ interface SettingsPanelProps {
 
 export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   babyInfo, setBabyInfo, records, setRecords,
-  isConnected, isSyncing, syncError, onFullSync,
+  isConnected, isSyncing, syncError, onFullSync, onForceFullSync,
   handleExportCSV, handleImportCSV, onImageUpload,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -74,6 +75,9 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
             <button onClick={onFullSync} disabled={isSyncing} className="w-full py-3 bg-white dark:bg-slate-700 border-2 border-indigo-100 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400 rounded-xl text-xs uppercase flex items-center justify-center gap-2 active:scale-95 transition-all disabled:opacity-50 font-semibold">
               <span className={isSyncing ? 'animate-spin' : ''}>🔄</span>
               {isSyncing ? '同步中...' : '立即雙向同步'}
+            </button>
+            <button onClick={onForceFullSync} disabled={isSyncing} className="w-full py-3 bg-white dark:bg-slate-700 border-2 border-amber-100 dark:border-amber-800 text-amber-600 dark:text-amber-400 rounded-xl text-xs uppercase flex items-center justify-center gap-2 active:scale-95 transition-all disabled:opacity-50 font-semibold">
+              ⚡ 強制完整同步（重新拉取全部）
             </button>
             <p className="text-xs text-slate-400 text-center">自動同步已啟動</p>
           </div>

@@ -21,6 +21,16 @@ export const useSync = (babyInfo: BabyInfo | null, showToast: (msg: string) => v
 
   const isConnected = !!(babyInfo?.syncUrl && babyInfo?.syncSecret);
 
+  const forceFullSync = useCallback((
+    localRecords: BabyRecord[],
+    onSyncComplete: (merged: BabyRecord[]) => void,
+  ) => {
+    lastSyncAtRef.current = 0;
+    localStorage.setItem('baby-last-sync-at', '0');
+    fullSync(localRecords, onSyncComplete);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const fullSync = useCallback(async (
     localRecords: BabyRecord[],
     onSyncComplete: (merged: BabyRecord[]) => void,
@@ -108,5 +118,6 @@ export const useSync = (babyInfo: BabyInfo | null, showToast: (msg: string) => v
     isSyncing,
     syncError,
     fullSync,
+    forceFullSync,
   };
 };

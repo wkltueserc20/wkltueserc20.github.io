@@ -72,6 +72,7 @@ function App() {
     isSyncing,
     syncError,
     fullSync,
+    forceFullSync,
   } = useSync(babyInfo, showToast);
 
   const recordsRef = useRef(records);
@@ -637,6 +638,7 @@ function App() {
             isSyncing={isSyncing}
             syncError={syncError}
             onFullSync={() => fullSync(records, setAllRecords)}
+            onForceFullSync={() => forceFullSync(records, setAllRecords)}
             handleExportCSV={handleExportCSVLocal}
             handleImportCSV={handleImportCSVLocal}
             onImageUpload={handleImageUpload}
