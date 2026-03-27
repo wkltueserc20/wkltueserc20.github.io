@@ -19,6 +19,8 @@ interface QueryRecord {
   note?: string;
   updatedAt: number;
   isDeleted?: boolean;
+  subType?: string | null;
+  label?: string | null;
 }
 
 export const DebugConsole: React.FC<DebugConsoleProps> = ({ babyInfo, onClose }) => {
@@ -81,6 +83,9 @@ export const DebugConsole: React.FC<DebugConsoleProps> = ({ babyInfo, onClose })
               <option value="feeding">餵奶</option>
               <option value="sleep">睡眠</option>
               <option value="growth">成長</option>
+              <option value="babyfood">副食品</option>
+              <option value="temperature">體溫</option>
+              <option value="vaccine">疫苗</option>
             </select>
           </div>
         </div>
@@ -127,6 +132,9 @@ export const DebugConsole: React.FC<DebugConsoleProps> = ({ babyInfo, onClose })
                   <span className={`text-xs px-2 py-0.5 rounded-lg uppercase font-semibold ${
                     r.type === 'feeding' ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400' :
                     r.type === 'sleep' ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400' :
+                    r.type === 'babyfood' ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400' :
+                    r.type === 'temperature' ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400' :
+                    r.type === 'vaccine' ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400' :
                     'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400'
                   }`}>
                     {r.type}{r.milkType ? ` (${r.milkType})` : ''}
@@ -138,6 +146,9 @@ export const DebugConsole: React.FC<DebugConsoleProps> = ({ babyInfo, onClose })
                   {r.amount != null && <div>amount: {r.amount}</div>}
                   {r.weight != null && <div>weight: {r.weight}</div>}
                   {r.height != null && <div>height: {r.height}</div>}
+                  {r.subType && <div>subType: {r.subType}</div>}
+                  {r.label && <div>label: {r.label}</div>}
+                  {r.endTimestamp != null && <div>endTs: {new Date(r.endTimestamp).toLocaleString('zh-TW')}</div>}
                   {r.note && <div className="col-span-2">note: {r.note}</div>}
                   <div>updated: {new Date(r.updatedAt).toLocaleString('zh-TW')}</div>
                   <div className="truncate" title={r.id}>id: {r.id.slice(0, 8)}...</div>
