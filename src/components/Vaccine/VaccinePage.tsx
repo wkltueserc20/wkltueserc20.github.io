@@ -9,10 +9,11 @@ interface VaccinePageProps {
   onAddVaccine: (vaccine: Omit<Record, 'id' | 'time' | 'updatedAt'>) => void;
   onMarkDone: (record: Record, actualDate: number) => void;
   onEditVaccine: (record: Record, newEndTimestamp: number, newNote: string, newSubType: string, newLabel: string) => void;
+  onDeleteVaccine: (id: string) => void;
 }
 
 export const VaccinePage: React.FC<VaccinePageProps> = ({
-  records, babyInfo, onAddVaccine, onMarkDone, onEditVaccine,
+  records, babyInfo, onAddVaccine, onMarkDone, onEditVaccine, onDeleteVaccine,
 }) => {
   const [showAdd, setShowAdd] = useState(false);
   const [customName, setCustomName] = useState('');
@@ -209,12 +210,20 @@ export const VaccinePage: React.FC<VaccinePageProps> = ({
                           <div className="text-sm font-semibold text-slate-800 dark:text-slate-200">{r.subType} {r.label}</div>
                           {r.note && <div className="text-xs text-slate-400 italic mt-0.5">{r.note}</div>}
                         </div>
-                        <button
-                          onClick={() => handleOpenEdit(r)}
-                          className="px-3 py-1.5 bg-slate-50 dark:bg-slate-700 text-slate-500 dark:text-slate-400 rounded-xl text-xs active:scale-95 transition-all font-semibold flex-shrink-0"
-                        >
-                          編輯
-                        </button>
+                        <div className="flex gap-1.5 flex-shrink-0">
+                          <button
+                            onClick={() => handleOpenEdit(r)}
+                            className="px-3 py-1.5 bg-slate-50 dark:bg-slate-700 text-slate-500 dark:text-slate-400 rounded-xl text-xs active:scale-95 transition-all font-semibold"
+                          >
+                            編輯
+                          </button>
+                          <button
+                            onClick={() => onDeleteVaccine(r.id)}
+                            className="px-3 py-1.5 bg-rose-50 dark:bg-rose-900/20 text-rose-400 dark:text-rose-400 rounded-xl text-xs active:scale-95 transition-all font-semibold"
+                          >
+                            刪除
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -257,12 +266,20 @@ export const VaccinePage: React.FC<VaccinePageProps> = ({
                       {r.note && <div className="text-xs text-slate-400">{r.note}</div>}
                     </div>
                   </div>
-                  <button
-                    onClick={() => { setConfirmDoneRecord(r); setConfirmDoneDate(formatLocalValue(new Date())); }}
-                    className="px-4 py-2 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-xl text-xs active:scale-95 transition-all font-semibold"
-                  >
-                    已打
-                  </button>
+                  <div className="flex gap-1.5 flex-shrink-0">
+                    <button
+                      onClick={() => { setConfirmDoneRecord(r); setConfirmDoneDate(formatLocalValue(new Date())); }}
+                      className="px-4 py-2 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-xl text-xs active:scale-95 transition-all font-semibold"
+                    >
+                      已打
+                    </button>
+                    <button
+                      onClick={() => onDeleteVaccine(r.id)}
+                      className="px-3 py-2 bg-rose-50 dark:bg-rose-900/20 text-rose-400 dark:text-rose-400 rounded-xl text-xs active:scale-95 transition-all font-semibold"
+                    >
+                      刪除
+                    </button>
+                  </div>
                 </div>
               );
             })}

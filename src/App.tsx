@@ -650,6 +650,7 @@ function App() {
             onAddVaccine={handleAddVaccine}
             onMarkDone={handleMarkVaccineDone}
             onEditVaccine={handleEditVaccine}
+            onDeleteVaccine={handleDeleteRecord}
           />
         )}
 
