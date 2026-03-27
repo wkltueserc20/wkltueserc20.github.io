@@ -1,0 +1,8 @@
+name = "baby-tracker-sync"
+main = "src/index.ts"
+compatibility_date = "2025-01-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "baby-tracker"
+database_id = "cb45e5fa-7d69-46dd-9fc8-8037ab390d5d"

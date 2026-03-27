@@ -1,16 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import {
-  LineChart,
-  Line,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Legend,
-} from 'recharts';
+import { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspense } from 'react';
 import type { Record, TabType, RecordType } from './types';
 import { useBabyInfo } from './hooks/useBabyInfo';
 import { useRecords } from './hooks/useRecords';
@@ -23,72 +11,83 @@ import {
 } from './utils/dateUtils';
 import { parseCSVLine } from './utils/csvUtils';
 import { SummaryCards } from './components/Stats/SummaryCards';
+const StatsTab = lazy(() => import('./components/Stats/StatsTab').then(m => ({ default: m.StatsTab })));
 import { RecordForm } from './components/Records/RecordForm';
 import { RecordList } from './components/Records/RecordList';
 import { SettingsPanel } from './components/Settings/SettingsPanel';
+import { ManualTab } from './components/ManualTab';
 import { SyncStatus } from './components/Layout/SyncStatus';
 import { BottomSheet } from './components/Layout/BottomSheet';
 import { SleepBanner } from './components/Layout/SleepBanner';
+import { ConfirmDialog } from './components/Layout/ConfirmDialog';
+import { QuickRecord } from './components/Home/QuickRecord';
+import { SyncGuide } from './components/Home/SyncGuide';
+import { FeedCountdown } from './components/Home/FeedCountdown';
+import type { MilkType } from './types';
+
+const MS_PER_DAY = 86400000;
+const MS_PER_MIN = 60000;
 
 function App() {
   // --- States & Hooks ---
   const { babyInfo, setBabyInfo } = useBabyInfo();
-  const { records, addRecord, updateRecord, setAllRecords } = useRecords();
+  const { records, isLoading, addRecord, updateRecord, setAllRecords } = useRecords();
   const [currentTab, setCurrentTab] = useState<TabType>('home');
-  const [toast, setToast] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ msg: string; undo?: () => void } | null>(null);
+  const [darkMode, setDarkMode] = useState(() => {
+    const saved = localStorage.getItem('dark-mode');
+    if (saved !== null) return saved === '1';
+    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+  });
   const [filter, setFilter] = useState<'all' | RecordType>('all');
   const [searchDate, setSearchDate] = useState<string>(new Date().toLocaleDateString('en-CA'));
-  const [sleepStartTime, setSleepStartTime] = useState<number | null>(() => {
-    const s = localStorage.getItem('baby-sleep-start');
-    return s ? Number(s) : null;
-  });
-  const [now, setNow] = useState<number>(Date.now());
+  const activeSleep = useMemo(() =>
+    records.find(r => r.type === 'sleep' && !r.endTimestamp && !r.isDeleted && !r.amount) ?? null,
+    [records]
+  );
   const [isEditing, setIsEditing] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
-  const [statsRange, setStatsRange] = useState<number>(7);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [showSyncGuide, setShowSyncGuide] = useState(() => !localStorage.getItem('sync-guide-dismissed'));
+  const [isPulling, setIsPulling] = useState(false);
 
-  const showToast = useCallback((msg: string) => {
-    setToast(msg);
-    setTimeout(() => setToast(null), 2500);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showToast = useCallback((msg: string, undo?: () => void) => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    setToast({ msg, undo });
+    toastTimerRef.current = setTimeout(() => setToast(null), undo ? 5000 : 2500);
   }, []);
 
+  const haptic = useCallback((ms = 10) => {
+    try { navigator.vibrate?.(ms); } catch {}
+  }, []);
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', darkMode);
+    localStorage.setItem('dark-mode', darkMode ? '1' : '0');
+  }, [darkMode]);
+
   const {
-    accessToken,
+    isConnected,
     isSyncing,
     syncError,
-    sendLineAction,
-    callGasApi,
-    cancelGasSchedule,
-    handleGoogleLogin,
-    markDateDirty,
     fullSync,
   } = useSync(babyInfo, showToast);
 
-  // --- Effects ---
-  useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(timer);
-  }, []);
-
-  useEffect(() => {
-    if (sleepStartTime) localStorage.setItem('baby-sleep-start', sleepStartTime.toString());
-    else localStorage.removeItem('baby-sleep-start');
-  }, [sleepStartTime]);
+  const recordsRef = useRef(records);
+  const pullYRef = useRef<number | null>(null);
+  useEffect(() => { recordsRef.current = records; }, [records]);
 
   const initialSyncRef = useRef(false);
   useEffect(() => {
-    // 關鍵修正：必須等待 babyInfo 載入完成才能進行 GAS 代理同步
-    if (accessToken && babyInfo && !initialSyncRef.current) {
+    if (isConnected && babyInfo && !initialSyncRef.current) {
       initialSyncRef.current = true;
-      fullSync(records, setAllRecords);
+      fullSync(recordsRef.current, setAllRecords);
     }
-  }, [accessToken, babyInfo, fullSync, setAllRecords, records]);
-
-  const recordsRef = useRef(records);
-  useEffect(() => { recordsRef.current = records; }, [records]);
+  }, [isConnected, babyInfo, fullSync, setAllRecords]);
 
   useEffect(() => {
-    if (!accessToken || !babyInfo) return; // 增加 babyInfo 檢查
+    if (!isConnected || !babyInfo) return;
 
     const triggerSync = () => {
       fullSync(recordsRef.current, setAllRecords, { silent: true });
@@ -107,7 +106,7 @@ function App() {
       document.removeEventListener('visibilitychange', handleAutoSync);
       window.removeEventListener('online', handleOnline);
     };
-  }, [accessToken, fullSync, setAllRecords]); // Removed records from dependencies
+  }, [isConnected, fullSync, setAllRecords]);
 
   // --- Derived Data (Stats) ---
   const stats = useMemo(() => {
@@ -126,7 +125,7 @@ function App() {
 
     const latestGrowth = records.find((r) => !r.isDeleted && r.type === 'growth');
     const daysSinceGrowth = latestGrowth 
-      ? Math.floor((new Date(searchDate).getTime() - latestGrowth.timestamp) / 86400000)
+      ? Math.floor((new Date(searchDate).getTime() - latestGrowth.timestamp) / MS_PER_DAY)
       : null;
 
     return {
@@ -143,129 +142,46 @@ function App() {
     };
   }, [records, searchDate]);
 
-  const nextFeed = useMemo(() => {
-    const last = records.find((r) => !r.isDeleted && r.type === 'feeding');
-    if (!last) return null;
-    const hr = new Date(last.timestamp).getHours();
-    if (hr === 23 || hr === 0) return { skip: true };
-    const target = last.timestamp + 4 * 60 * 60 * 1000;
-    const diff = target - now;
-    if (diff <= -43200000) return null;
-    const abs = Math.abs(diff);
-    return {
-      str: `${Math.floor(abs / 3600000)}h ${Math.floor((abs % 3600000) / 60000)}m ${Math.floor(
-        (abs % 60000) / 1000
-      )}s`,
-      isOver: diff < 0,
-      targetStr: formatTimeWithPeriod(target),
-      id: last.id,
-    };
-  }, [records, now]);
-
-  const milkChartData = useMemo(() => {
-    const data = [];
-    for (let i = statsRange - 1; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      const dateStr = d.toLocaleDateString('en-CA');
-      const dayTotal = records
-        .filter((r) => !r.isDeleted && isSameDay(r.timestamp, dateStr) && r.type === 'feeding')
-        .reduce((s, r) => s + (r.amount || 0), 0);
-      data.push({
-        name: d.toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' }),
-        amount: dayTotal,
-      });
-    }
-    return data;
-  }, [records, statsRange]);
-
-  const sleepChartData = useMemo(() => {
-    const data = [];
-    for (let i = statsRange - 1; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      const dateStr = d.toLocaleDateString('en-CA');
-      const mins = records
-        .filter((r) => !r.isDeleted && r.type === 'sleep' && isSameDay(getRecordTargetTs(r), dateStr))
-        .reduce((s, r) => s + (r.amount || 0), 0);
-      data.push({
-        name: d.toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' }),
-        hours: parseFloat((mins / 60).toFixed(1)),
-      });
-    }
-    return data;
-  }, [records, statsRange]);
-
-  const growthChartData = useMemo(
-    () =>
-      records
-        .filter((r) => !r.isDeleted && r.type === 'growth')
-        .sort((a, b) => a.timestamp - b.timestamp)
-        .map((r) => ({
-          date: new Date(r.timestamp).toLocaleDateString('zh-TW', {
-            month: 'numeric',
-            day: 'numeric',
-          }),
-          weight: r.weight,
-          height: r.height,
-        })),
-    [records]
-  );
-
   // --- Actions ---
+  const myDevice = babyInfo?.deviceName || '';
+
   const handleStartSleep = (time: string) => {
     const st = new Date(time).getTime();
     if (isNaN(st)) return;
-    setSleepStartTime(st);
-    setNow(Date.now());
-    showToast('開始紀錄睡眠 😴');
-  };
-
-  const handleWakeUp = () => {
-    if (!sleepStartTime) return;
-    const et = Date.now();
-    const diff = Math.round((et - sleepStartTime) / 60000);
     const newRec: Record = {
       id: crypto.randomUUID(),
       type: 'sleep',
-      time: new Date(et).toLocaleString('zh-TW'),
-      timestamp: sleepStartTime,
-      endTimestamp: et,
-      amount: diff,
-      note: `睡覺: ${new Date(sleepStartTime).toLocaleTimeString([], {
-        hour: '2-digit',
-        minute: '2-digit',
-      })} ~ ${new Date(et).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
+      time: new Date(st).toLocaleString('zh-TW'),
+      timestamp: st,
+      amount: 0,
+      note: '睡覺中...',
       updatedAt: Date.now(),
+      deviceName: myDevice,
     };
-    const newRecords = [newRec, ...records].sort((a, b) => b.timestamp - a.timestamp);
     addRecord(newRec);
-    markDateDirty(newRec.timestamp);
-    setSleepStartTime(null);
-    showToast('紀錄成功 ✨');
+    haptic();
+    const newRecords = [newRec, ...records].sort((a, b) => b.timestamp - a.timestamp);
     fullSync(newRecords, setAllRecords);
+    showToast('開始紀錄睡眠 😴');
   };
 
-  const handleFinishSleep = async () => {
-    if (!sleepStartTime) return;
+  const handleFinishSleep = () => {
+    if (!activeSleep) return;
     const nowTs = Date.now();
-    const diffMins = Math.floor((nowTs - sleepStartTime) / 60000);
-    const newRecord: Record = {
-      id: nowTs.toString(),
-      type: 'sleep',
+    const diffMins = Math.floor((nowTs - activeSleep.timestamp) / MS_PER_MIN);
+    const updatedRec: Record = {
+      ...activeSleep,
       time: new Date(nowTs).toLocaleString('zh-TW'),
-      timestamp: sleepStartTime,
       endTimestamp: nowTs,
       amount: diffMins,
-      note: `睡覺: ${formatTimeWithPeriod(sleepStartTime)} ~ ${formatTimeWithPeriod(nowTs)}`,
+      note: `睡覺: ${formatTimeWithPeriod(activeSleep.timestamp)} ~ ${formatTimeWithPeriod(nowTs)}`,
       updatedAt: nowTs,
     };
-    await addRecord(newRecord);
-    markDateDirty(newRecord.timestamp);
-    setSleepStartTime(null);
-    const finalRecords = [newRecord, ...records].sort((a, b) => b.timestamp - a.timestamp);
-    fullSync(finalRecords, setAllRecords, { silent: true });
-    showToast("寶寶起床了 ☀️ 紀錄已存檔");
+    updateRecord(updatedRec);
+    haptic(20);
+    const updatedRecords = records.map(r => r.id === activeSleep.id ? updatedRec : r);
+    fullSync(updatedRecords, setAllRecords);
+    showToast('寶寶起床了 ☀️ 紀錄已存檔');
   };
 
   const handleSaveRecord = (recordData: any) => {
@@ -276,7 +192,7 @@ function App() {
     let fTime = new Date(ts).toLocaleString('zh-TW');
 
     if (recordData.type === 'sleep' && fEnd) {
-      fAm = Math.max(0, Math.round((fEnd - ts) / 60000));
+      fAm = Math.max(0, Math.round((fEnd - ts) / MS_PER_MIN));
       fTime = new Date(fEnd).toLocaleString('zh-TW');
       const pureNote = recordData.note.replace(/^睡覺: \d{2}:\d{2} ~ \d{2}:\d{2}( - )?/, '');
       const timeRange = `${new Date(ts).toLocaleTimeString([], {
@@ -297,27 +213,14 @@ function App() {
       weight: recordData.weight,
       height: recordData.height,
       updatedAt: Date.now(),
+      deviceName: myDevice,
     };
-
-    if (recordData.type === 'feeding') {
-      const hr = new Date(ts).getHours();
-      if (hr !== 23 && hr !== 0) {
-        if (babyInfo?.lineEnabled) {
-          callGasApi(ts + 4 * 60 * 60 * 1000);
-          showToast('☁️ 正在同步雲端提醒...');
-        }
-      } else {
-        cancelGasSchedule();
-        showToast('🌙 深夜長睡眠，已取消雲端提醒');
-      }
-    }
 
     let updatedRecords: Record[];
     if (isEditing) {
       const target = records.find((r) => r.id === isEditing);
       const newRec = { ...target, ...base } as Record;
       updateRecord(newRec);
-      markDateDirty(ts);
       updatedRecords = records.map((r) => (r.id === isEditing ? newRec : r));
       setIsEditing(null);
       showToast('修改成功 ✅');
@@ -325,7 +228,6 @@ function App() {
       const newId = crypto.randomUUID();
       const newRec = { id: newId, ...base } as Record;
       addRecord(newRec);
-      markDateDirty(ts);
       updatedRecords = [newRec, ...records];
       showToast('新增成功 ✨');
     }
@@ -334,19 +236,55 @@ function App() {
   };
 
   const handleDeleteRecord = (id: string) => {
-    if (window.confirm('確定要刪除這筆紀錄嗎？')) {
-      const target = records.find((r) => r.id === id);
-      if (!target) return;
-      const updatedRec = { ...target, isDeleted: true, updatedAt: Date.now() };
-      updateRecord(updatedRec);
-      markDateDirty(target.timestamp);
-
-      const newRecs = records.map(r => r.id === id ? updatedRec : r);
-      showToast('已刪除 🗑️');
-      fullSync(newRecs, setAllRecords);
-      if (target?.type === 'feeding') cancelGasSchedule();
-    }
+    setDeleteTarget(id);
   };
+
+  const confirmDelete = () => {
+    if (!deleteTarget) return;
+    const target = records.find((r) => r.id === deleteTarget);
+    if (!target) return;
+    const updatedRec = { ...target, isDeleted: true, updatedAt: Date.now() };
+    updateRecord(updatedRec);
+    const newRecs = records.map(r => r.id === deleteTarget ? updatedRec : r);
+    haptic(15);
+    fullSync(newRecs, setAllRecords);
+    setDeleteTarget(null);
+
+    const undoDelete = () => {
+      const restored = { ...target, isDeleted: false, updatedAt: Date.now() };
+      updateRecord(restored);
+      const restoredRecs = records.map(r => r.id === target.id ? restored : r);
+      fullSync(restoredRecs, setAllRecords);
+      showToast('已復原 ✅');
+    };
+    showToast('已刪除 🗑️', undoDelete);
+  };
+
+  const handleQuickFeed = (milkType: MilkType, amount: number) => {
+    const nowTs = Date.now();
+    const newRec: Record = {
+      id: crypto.randomUUID(),
+      type: 'feeding',
+      milkType,
+      time: new Date(nowTs).toLocaleString('zh-TW'),
+      timestamp: nowTs,
+      amount,
+      updatedAt: nowTs,
+      deviceName: myDevice,
+    };
+    addRecord(newRec);
+    const updatedRecords = [newRec, ...records];
+    haptic();
+    showToast(`${milkType === 'formula' ? '配方' : '母奶'} ${amount}ml ✨`);
+    fullSync(updatedRecords, setAllRecords);
+  };
+
+  const handlePullRefresh = useCallback(() => {
+    if (isPulling || !isConnected) return;
+    setIsPulling(true);
+    fullSync(recordsRef.current, setAllRecords, { silent: true });
+    setTimeout(() => setIsPulling(false), 1500);
+  }, [isPulling, isConnected, fullSync, setAllRecords]);
 
   const handleExportCSVLocal = () => {
     const now = new Date();
@@ -358,11 +296,11 @@ function App() {
       .replace(/:/g, '');
     const fileName = `baby_records_${dateStr}_${timeStr}.csv`;
 
-    let csv = '\uFEFFID,時間,類別,奶種,數值,狀態,體重,身高,開始時間戳,結束時間戳,備註\n';
+    let csv = '\uFEFFID,時間,類別,奶種,數值,狀態,體重,身高,開始時間戳,結束時間戳,備註,最後修改時間戳\n';
     records.forEach((r) => {
-      csv += `"${r.id}","${r.time}","${r.type}","${r.milkType || ''}","${r.amount || ''}","","${
+      csv += `"${r.id}","${r.time}","${r.type}","${r.milkType || ''}","${r.amount || ''}","${r.isDeleted ? 'deleted' : ''}","${
         r.weight || ''
-      }","${r.height || ''}","${r.timestamp}","${r.endTimestamp || ''}","${r.note || ''}"\n`;
+      }","${r.height || ''}","${r.timestamp}","${r.endTimestamp || ''}","${r.note || ''}","${r.updatedAt || ''}"\n`;
     });
 
     const link = document.createElement('a');
@@ -377,37 +315,47 @@ function App() {
     if (!f) return;
     const rd = new FileReader();
     rd.onload = (ev) => {
-      const text = ev.target?.result as string;
-      const lines = text
-        .split('\n')
-        .filter((l) => l.trim() !== '')
-        .slice(1);
-      let count = 0;
-      const newRecs = [...records];
-      lines.forEach((l) => {
-        const c = parseCSVLine(l.trim());
-        if (c.length < 11) return;
-        const ts = Number(c[8]);
-        const recordType = c[2] as RecordType;
-        if (recordType !== ('diaper' as any) && !isNaN(ts) && !newRecs.some((rr) => rr.timestamp === ts)) {
-          newRecs.push({
-            id: c[0] || crypto.randomUUID(),
-            time: c[1],
-            timestamp: ts,
-            type: recordType,
-            milkType: c[3] as any,
-            amount: c[4] ? Number(c[4]) : undefined,
-            weight: c[6] ? Number(c[6]) : undefined,
-            height: c[7] ? Number(c[7]) : undefined,
-            endTimestamp: c[9] ? Number(c[9]) : undefined,
-            note: c[10],
-          });
-          count++;
+      try {
+        const text = ev.target?.result as string;
+        if (!text) return;
+        const lines = text
+          .split('\n')
+          .filter((l) => l.trim() !== '')
+          .slice(1);
+        let count = 0;
+        const validTypes = new Set(['feeding', 'sleep', 'growth']);
+        const newRecs = [...records];
+        lines.forEach((l) => {
+          try {
+            const c = parseCSVLine(l.trim());
+            if (c.length < 11) return;
+            const ts = Number(c[8]);
+            const recordType = c[2] as RecordType;
+            if (!validTypes.has(recordType) || isNaN(ts) || newRecs.some((rr) => rr.timestamp === ts)) return;
+            newRecs.push({
+              id: c[0] || crypto.randomUUID(),
+              time: c[1],
+              timestamp: ts,
+              type: recordType,
+              milkType: (c[3] === 'formula' || c[3] === 'breast') ? c[3] : undefined,
+              amount: c[4] ? Number(c[4]) : undefined,
+              weight: c[6] ? Number(c[6]) : undefined,
+              height: c[7] ? Number(c[7]) : undefined,
+              endTimestamp: c[9] ? Number(c[9]) : undefined,
+              note: c[10],
+              updatedAt: c[11] ? Number(c[11]) : Date.now(),
+            });
+            count++;
+          } catch { /* skip malformed line */ }
+        });
+        if (count > 0) {
+          setAllRecords(newRecs);
+          showToast(`成功匯入 ${count} 筆資料 📥`);
+        } else {
+          showToast('未找到可匯入的資料');
         }
-      });
-      if (count > 0) {
-        setAllRecords(newRecs);
-        showToast(`成功匯入 ${count} 筆資料 📥`);
+      } catch {
+        showToast('匯入失敗，CSV 格式錯誤 ❌');
       }
     };
     rd.readAsText(f);
@@ -450,31 +398,50 @@ function App() {
 
   const isTodaySearch = searchDate === new Date().toLocaleDateString('en-CA');
 
+  const TAB_ORDER: TabType[] = ['home', 'stats', 'manual', 'settings'];
+  const swipeRef = useRef<{ x: number; y: number } | null>(null);
+  const handleSwipeStart = (e: React.TouchEvent) => {
+    swipeRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  };
+  const handleSwipeEnd = (e: React.TouchEvent) => {
+    if (!swipeRef.current) return;
+    const dx = e.changedTouches[0].clientX - swipeRef.current.x;
+    const dy = e.changedTouches[0].clientY - swipeRef.current.y;
+    swipeRef.current = null;
+    const tag = (document.activeElement as HTMLElement)?.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+    if (Math.abs(dx) < 60 || Math.abs(dy) > Math.abs(dx)) return;
+    const idx = TAB_ORDER.indexOf(currentTab);
+    if (dx < 0 && idx < TAB_ORDER.length - 1) setCurrentTab(TAB_ORDER[idx + 1]);
+    if (dx > 0 && idx > 0) setCurrentTab(TAB_ORDER[idx - 1]);
+  };
+
+  const [setupName, setSetupName] = useState('');
+  const [setupBirthday, setSetupBirthday] = useState('');
+
   if (!babyInfo) {
     return (
-      <div className="min-h-screen bg-indigo-50 flex items-center justify-center p-6 text-center font-black text-slate-800">
-        <div className="max-w-md w-full bg-white rounded-[3rem] shadow-2xl p-12 space-y-8 border-b-8 border-indigo-100">
-          <h2 className="text-4xl text-indigo-600 font-black">育兒助手</h2>
-          <div className="space-y-5 text-left font-black">
+      <div className="min-h-screen bg-indigo-50 dark:bg-slate-900 flex items-center justify-center p-6 text-center">
+        <div className="max-w-md w-full bg-white dark:bg-slate-800 rounded-3xl shadow-2xl p-10 space-y-8 border-b-8 border-indigo-100 dark:border-indigo-900">
+          <h2 className="text-4xl text-indigo-600">育兒助手</h2>
+          <div className="space-y-5 text-left">
             <input
               type="text"
-              id="tempName"
-              className="w-full p-5 bg-slate-50 border-none rounded-[2rem] outline-none focus:ring-4 focus:ring-indigo-500/10 font-bold"
+              value={setupName}
+              onChange={e => setSetupName(e.target.value)}
+              className="w-full p-5 bg-slate-50 dark:bg-slate-700 dark:text-slate-200 border-none rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/10"
               placeholder="請輸入名字"
             />
             <input
               type="date"
-              id="tempBirthday"
-              className="w-full p-5 bg-slate-50 border-none rounded-[2rem] outline-none focus:ring-4 focus:ring-indigo-500/10 font-bold"
+              value={setupBirthday}
+              onChange={e => setSetupBirthday(e.target.value)}
+              className="w-full p-5 bg-slate-50 dark:bg-slate-700 dark:text-slate-200 border-none rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/10"
             />
           </div>
           <button
-            onClick={() => {
-              const name = (document.getElementById('tempName') as HTMLInputElement).value;
-              const birthday = (document.getElementById('tempBirthday') as HTMLInputElement).value;
-              if (name && birthday) setBabyInfo({ name, birthday, lineEnabled: false });
-            }}
-            className="w-full bg-indigo-600 text-white py-6 rounded-[2.5rem] font-black shadow-xl active:scale-95 transition-all text-xl"
+            onClick={() => { if (setupName && setupBirthday) setBabyInfo({ name: setupName, birthday: setupBirthday }); }}
+            className="w-full bg-indigo-600 text-white py-6 rounded-3xl shadow-xl active:scale-95 transition-all text-xl"
           >
             開始使用
           </button>
@@ -485,7 +452,7 @@ function App() {
 
   const babyAge = (() => {
     const birth = new Date(babyInfo.birthday);
-    const totalDays = Math.floor((Date.now() - birth.getTime()) / 86400000);
+    const totalDays = Math.floor((Date.now() - birth.getTime()) / MS_PER_DAY);
     const years = Math.floor(totalDays / 365);
     const weeks = Math.floor((totalDays % 365) / 7);
     const days = (totalDays % 365) % 7;
@@ -496,97 +463,101 @@ function App() {
   })();
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] pb-32 font-black text-slate-800">
+    <div className="min-h-screen bg-[#F8FAFC] dark:bg-slate-900 pb-32 text-slate-800 dark:text-slate-200 transition-colors duration-300">
       {toast && (
-        <div className="fixed top-28 left-1/2 -translate-x-1/2 z-[100] animate-in slide-in-from-top-4 fade-in duration-300 font-black">
-          <div className="bg-slate-900/95 backdrop-blur-md text-white px-8 py-3.5 rounded-full shadow-2xl text-[11px] border border-white/10 uppercase font-black">
-            {toast}
+        <div className="fixed bottom-36 left-1/2 -translate-x-1/2 z-[100] animate-in fade-in slide-in-from-bottom-4 duration-300">
+          <div className="bg-slate-900/95 backdrop-blur-md text-white px-6 py-3.5 rounded-full shadow-2xl text-[11px] border border-white/10 uppercase flex items-center gap-3">
+            <span>{toast.msg}</span>
+            {toast.undo && (
+              <button
+                onClick={() => { toast.undo?.(); setToast(null); }}
+                className="text-indigo-300 underline underline-offset-2 active:text-white transition-colors"
+              >
+                復原
+              </button>
+            )}
           </div>
         </div>
       )}
-      <header className="bg-white/90 backdrop-blur-2xl sticky top-0 z-50 border-b border-slate-100 shadow-sm font-black">
+      <header className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-2xl sticky top-0 z-50 border-b border-slate-100 dark:border-slate-700 shadow-sm">
         <div className="max-w-md mx-auto px-6 py-6 flex justify-between items-center">
-          <div className="flex items-center gap-5 text-left font-black">
-            <div className="w-20 h-20 rounded-[1.75rem] bg-indigo-50 border-4 border-white shadow-xl overflow-hidden flex-shrink-0 flex items-center justify-center relative active:scale-95 transition-transform">
+          <div className="flex items-center gap-4 text-left">
+            <div className="w-16 h-16 rounded-2xl bg-indigo-50 border-4 border-white shadow-lg overflow-hidden flex-shrink-0 flex items-center justify-center active:scale-95 transition-transform">
               {babyInfo.avatar ? (
                 <img src={babyInfo.avatar} className="w-full h-full object-cover" />
               ) : (
-                <span className="text-4xl font-black">👶</span>
+                <span className="text-3xl">👶</span>
               )}
             </div>
             <div className="flex flex-col">
-              <h1 className="text-3xl font-black text-slate-900 tracking-tighter leading-none mb-2.5">
+              <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 tracking-tighter leading-none mb-1.5">
                 {babyInfo.name}
               </h1>
-              <div className="flex flex-wrap items-center gap-2 font-black">
-                <span className="bg-indigo-600 text-white px-2.5 py-1 rounded-lg text-[11px] shadow-md font-black">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="bg-indigo-600 text-white px-2.5 py-1 rounded-lg text-xs shadow-md font-semibold">
                   {babyAge.text}
                 </span>
-                <span className="text-[10px] text-slate-400 uppercase tracking-widest font-black">
+                <span className="text-xs text-slate-400 uppercase tracking-widest">
                   第 {babyAge.days} 天
                 </span>
               </div>
             </div>
           </div>
-          <div className="flex flex-col items-end gap-2 font-black">
-            <div className="bg-slate-900 text-white w-9 h-9 rounded-2xl flex items-center justify-center text-[11px] uppercase shadow-xl font-black">
-              {currentTab.charAt(0)}
-            </div>
+          <div className="flex flex-col items-end gap-2">
+            <button
+              onClick={() => setDarkMode(!darkMode)}
+              aria-label="切換深色模式"
+              className="bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 w-9 h-9 rounded-2xl flex items-center justify-center text-sm shadow-xl active:scale-90 transition-all"
+            >
+              {darkMode ? '☀️' : '🌙'}
+            </button>
             <SyncStatus isSyncing={isSyncing} syncError={syncError} />
           </div>
         </div>
       </header>
 
-      <main className="max-w-md mx-auto px-6 pt-8 space-y-7 font-black">
-        <SleepBanner startTime={sleepStartTime} onFinish={handleFinishSleep} />
+      <main
+        className="max-w-md mx-auto px-6 pt-8 space-y-7"
+        onTouchStart={(e) => {
+          pullYRef.current = e.touches[0].clientY;
+          handleSwipeStart(e);
+        }}
+        onTouchEnd={(e) => {
+          if (pullYRef.current !== null) {
+            const endY = e.changedTouches[0].clientY;
+            const scrollTop = document.documentElement.scrollTop || document.body.scrollTop;
+            if (scrollTop <= 0 && endY - pullYRef.current > 80) handlePullRefresh();
+            pullYRef.current = null;
+          }
+          handleSwipeEnd(e);
+        }}
+      >
+        {isPulling && (
+          <div className="flex justify-center py-3 animate-in fade-in duration-200">
+            <div className="w-6 h-6 border-3 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
+          </div>
+        )}
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center py-20 gap-4">
+            <div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
+            <p className="text-xs text-slate-400 uppercase tracking-widest">載入中...</p>
+          </div>
+        ) : <>
+        <SleepBanner startTime={activeSleep?.timestamp ?? null} onFinish={handleFinishSleep} />
+        <div key={currentTab} className="animate-in fade-in duration-300">
 
         {currentTab === 'home' && (
           <>
-            {nextFeed && (
-              <div
-                className={`p-6 rounded-[2.5rem] shadow-xl border-2 flex justify-between items-center transition-all font-black ${
-                  nextFeed.skip
-                    ? 'bg-slate-50 border-slate-200 text-slate-400'
-                    : nextFeed.isOver
-                    ? 'bg-rose-50 border-rose-200 text-rose-600 animate-pulse'
-                    : 'bg-indigo-50 border-indigo-100 text-indigo-600'
-                }`}
-              >
-                <div className="text-left font-black">
-                  <div className="flex items-center gap-2 mb-1">
-                    <p className="text-[10px] uppercase opacity-60 font-black">
-                      {nextFeed.skip ? '長睡眠時段' : `下餐預計時刻 (${nextFeed.targetStr})`}
-                    </p>
-                    {!nextFeed.skip && babyInfo.gasUrl && (
-                      <span className="text-[9px] bg-white/50 px-1.5 py-0.5 rounded-md font-black">
-                        ☁️ 雲端已掛載
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-3xl font-black tracking-tighter">
-                    {nextFeed.skip ? '🌙 靜音中' : nextFeed.str}
-                    <span
-                      className={`ml-1 ${
-                        Math.floor(now / 1000) % 2 === 0 ? 'opacity-0' : 'opacity-100'
-                      }`}
-                    >
-                      .
-                    </span>
-                  </p>
-                </div>
-                <div className="flex flex-col items-center gap-2">
-                  <div className="text-3xl">{nextFeed.skip ? '😴' : nextFeed.isOver ? '⚠️' : '🍼'}</div>
-                  {!nextFeed.skip && nextFeed.isOver && (
-                    <button
-                      onClick={() => sendLineAction(`🍼 ${nextFeed.targetStr} 喝奶時間到了喔！`)}
-                      className="bg-white/40 p-2 rounded-full active:scale-90 shadow-sm font-black"
-                    >
-                      🔔
-                    </button>
-                  )}
-                </div>
-              </div>
+            {showSyncGuide && !isConnected && (
+              <SyncGuide
+                onGoToSettings={() => { setCurrentTab('settings'); setShowSyncGuide(false); }}
+                onDismiss={() => { setShowSyncGuide(false); localStorage.setItem('sync-guide-dismissed', '1'); }}
+              />
             )}
+
+            <QuickRecord records={records} onQuickFeed={handleQuickFeed} />
+
+            <FeedCountdown records={records} feedIntervalMs={(babyInfo.feedIntervalHours || 4) * 3600000} />
 
             <SummaryCards
               searchDate={searchDate}
@@ -610,132 +581,9 @@ function App() {
         )}
 
         {currentTab === 'stats' && (
-          <div className="space-y-7 pb-16 font-black animate-in fade-in duration-700 font-black text-slate-800">
-            {/* 時間區間切換器 */}
-            <div className="bg-white p-2 rounded-[2rem] shadow-sm border border-slate-100 flex gap-1 font-black">
-              {[7, 14, 28].map((range) => (
-                <button
-                  key={range}
-                  onClick={() => setStatsRange(range)}
-                  className={`flex-1 py-3.5 rounded-[1.5rem] text-[11px] font-black uppercase transition-all ${
-                    statsRange === range 
-                      ? 'bg-slate-900 text-white shadow-lg scale-[1.02]' 
-                      : 'text-slate-400 hover:bg-slate-50'
-                  }`}
-                >
-                  {range} Days
-                </button>
-              ))}
-            </div>
-
-            <div className="bg-white p-7 rounded-[2.5rem] shadow-sm border border-slate-100 font-black font-black">
-              <h2 className="text-[11px] text-slate-900 mb-8 uppercase tracking-widest flex items-center gap-2 text-left font-black">
-                <div className="w-2 h-5 bg-indigo-500 rounded-full" /> 每日奶量 (ml)
-              </h2>
-              <div className="h-60">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={milkChartData}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                    <XAxis
-                      dataKey="name"
-                      axisLine={false}
-                      tickLine={false}
-                      tick={{ fontSize: statsRange > 14 ? 8 : 10, fill: '#94a3b8', fontWeight: 900 }}
-                    />
-                    <YAxis
-                      axisLine={false}
-                      tickLine={false}
-                      tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 900 }}
-                    />
-                    <Tooltip cursor={{ fill: '#F8FAFC', radius: 12 }} />
-                    <Bar dataKey="amount" fill="#6366f1" radius={[8, 8, 8, 8]} barSize={statsRange > 14 ? 12 : 28} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-            <div className="bg-white p-7 rounded-[2.5rem] shadow-sm border border-slate-100 font-black">
-              <h2 className="text-[11px] text-slate-900 mb-8 uppercase tracking-widest flex items-center gap-2 text-left font-black">
-                <div className="w-2 h-5 bg-purple-500 rounded-full" /> 每日睡眠 (hrs)
-              </h2>
-              <div className="h-60">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={sleepChartData}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                    <XAxis
-                      dataKey="name"
-                      axisLine={false}
-                      tickLine={false}
-                      tick={{ fontSize: statsRange > 14 ? 8 : 10, fill: '#94a3b8', fontWeight: 900 }}
-                    />
-                    <YAxis
-                      axisLine={false}
-                      tickLine={false}
-                      tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 900 }}
-                    />
-                    <Tooltip cursor={{ fill: '#F8FAFC', radius: 12 }} />
-                    <Bar dataKey="hours" fill="#a855f7" radius={[8, 8, 8, 8]} barSize={statsRange > 14 ? 12 : 28} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-            <div className="bg-white p-7 rounded-[2.5rem] shadow-sm border border-slate-100 text-left font-black">
-              <h2 className="text-[11px] text-slate-900 mb-8 uppercase tracking-widest flex items-center gap-2 font-black">
-                <div className="w-2 h-5 bg-emerald-500 rounded-full font-black" /> 成長曲線紀錄
-              </h2>
-              {growthChartData.length > 0 ? (
-                <div className="h-60 font-black">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={growthChartData}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                      <XAxis
-                        dataKey="date"
-                        axisLine={false}
-                        tickLine={false}
-                        tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 900 }}
-                      />
-                      <YAxis
-                        yAxisId="left"
-                        stroke="#10b981"
-                        tick={{ fontSize: 10, fontWeight: 900 }}
-                      />
-                      <YAxis
-                        yAxisId="right"
-                        orientation="right"
-                        stroke="#3b82f6"
-                        tick={{ fontSize: 10, fontWeight: 900 }}
-                      />
-                      <Tooltip />
-                      <Legend
-                        wrapperStyle={{ fontSize: '10px', fontWeight: 900, paddingTop: '25px' }}
-                      />
-                      <Line
-                        yAxisId="left"
-                        type="monotone"
-                        dataKey="weight"
-                        stroke="#10b981"
-                        strokeWidth={5}
-                        dot={{ r: 5, fill: '#fff', strokeWidth: 4 }}
-                        name="體重(kg)"
-                      />
-                      <Line
-                        yAxisId="right"
-                        type="monotone"
-                        dataKey="height"
-                        stroke="#3b82f6"
-                        strokeWidth={5}
-                        dot={{ r: 5, fill: '#fff', strokeWidth: 4 }}
-                        name="身高(cm)"
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-              ) : (
-                <p className="text-center text-xs text-slate-300 py-12 uppercase font-black">
-                  目前尚無數據
-                </p>
-              )}
-            </div>
-          </div>
+          <Suspense fallback={<div className="flex justify-center py-20"><div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" /></div>}>
+            <StatsTab records={records} />
+          </Suspense>
         )}
 
         {currentTab === 'settings' && (
@@ -744,81 +592,23 @@ function App() {
             setBabyInfo={setBabyInfo}
             records={records}
             setRecords={setAllRecords}
-            accessToken={accessToken}
+            isConnected={isConnected}
             isSyncing={isSyncing}
+            syncError={syncError}
             onFullSync={() => fullSync(records, setAllRecords)}
-            handleGoogleLogin={handleGoogleLogin}
             handleExportCSV={handleExportCSVLocal}
             handleImportCSV={handleImportCSVLocal}
             onImageUpload={handleImageUpload}
-            onSendLineTest={() => sendLineAction('🔔 LINE 測試成功！')}
-            onCallGasTest={() => callGasApi(Date.now(), true)}
           />
         )}
 
-        {currentTab === 'manual' && (
-          <div className="space-y-7 pb-16 animate-in fade-in duration-500 font-black text-left">
-            <div className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-slate-100 space-y-6">
-              <h2 className="text-2xl font-black text-indigo-600 flex items-center gap-2">
-                <span className="text-3xl">📖</span> 操作手冊
-              </h2>
-
-              <section className="space-y-3">
-                <h3 className="text-sm font-black bg-indigo-50 text-indigo-600 px-4 py-2 rounded-xl inline-block">
-                  🍼 餵奶與 Line 通知
-                </h3>
-                <p className="text-xs text-slate-600 leading-relaxed">
-                  新增餵奶紀錄後，系統會自動在 <b>4 小時後</b> 發送 Line 通知。
-                  <br />• <b>智慧覆蓋：</b> 僅最新的紀錄會觸發通知。
-                  <br />• <b>深夜靜音：</b> 23:00~01:00 紀錄不通知，並取消上一筆排程。
-                  <br />• <b>刪除即取消：</b> 刪除最近一筆餵奶，雲端通知會同步撤銷。
-                </p>
-              </section>
-
-              <section className="space-y-3">
-                <h3 className="text-sm font-black bg-emerald-50 text-emerald-600 px-4 py-2 rounded-xl inline-block">
-                  ☁️ 雙向同步與多人協作 (v9.1)
-                </h3>
-                <p className="text-xs text-slate-600 leading-relaxed">
-                  系統透過您的專屬 GAS 實現<b>多設備永久聯動</b>。
-                  <br />• <b>長效授權：</b> 僅需在設定中執行一次「永久授權」，之後再也不會彈出 Google 登入視窗。
-                  <br />• <b>全自動同步：</b> 當您回到 App 或網路恢復時，系統會自動透過 GAS 代理執行靜默同步。
-                  <br />• <b>安全代理：</b> 所有資料交換皆由您的私有 GAS 處理，徹底解決瀏覽器第三方 Cookie 限制問題。
-                </p>
-              </section>
-
-              <section className="space-y-3">
-                <h3 className="text-sm font-black bg-purple-50 text-purple-600 px-4 py-2 rounded-xl inline-block">
-                  📶 離線支援 (PWA)
-                </h3>
-                <p className="text-xs text-slate-600 leading-relaxed">
-                  本應用支援<b>完全斷網紀錄</b>。
-                  <br />• <b>秒開體驗：</b> 加入主畫面後，即便在飛航模式也能秒開 App。
-                  <br />• <b>離線紀錄：</b> 斷網時的紀錄會暫存在手機，連線後自動併入雲端。
-                </p>
-              </section>
-
-              <section className="space-y-3">
-                <h3 className="text-sm font-black bg-amber-50 text-amber-600 px-4 py-2 rounded-xl inline-block">
-                  ⚙️ 故障排除
-                </h3>
-                <p className="text-xs text-slate-600 leading-relaxed">
-                  若資料未同步或提醒失敗，請嘗試：
-                  <br />
-                  1. 點擊設定頁的 <b>「立即雙向同步」</b> 按鈕。
-                  <br />
-                  2. 確保 Google 雲端授權未過期（頭像下方顯示已連結）。
-                  <br />
-                  3. 檢查設定中的 <b>GAS URL</b> 與 <b>Line Token</b> 是否正確配置。
-                </p>
-              </section>
-            </div>
-          </div>
-        )}
+        {currentTab === 'manual' && <ManualTab />}
+        </div>
+        </>}
       </main>
 
-      <nav className="fixed bottom-0 w-full bg-white/95 backdrop-blur-xl border-t border-slate-100 px-6 pb-10 pt-4 z-50 shadow-[0_-10px_25px_-5px_rgba(0,0,0,0.05)] font-black text-slate-800">
-        <div className="max-w-md mx-auto flex justify-between items-center font-black relative">
+      <nav aria-label="主選單" className="fixed bottom-0 w-full bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl border-t border-slate-100 dark:border-slate-700 px-6 pb-10 pt-4 z-50 shadow-[0_-10px_25px_-5px_rgba(0,0,0,0.05)]">
+        <div className="max-w-md mx-auto flex justify-between items-center relative">
           {/* 左側 2 個 Tabs */}
           {[
             { id: 'home', icon: '📝', label: '日常' },
@@ -827,7 +617,7 @@ function App() {
             <button
               key={tab.id}
               onClick={() => setCurrentTab(tab.id as TabType)}
-              className={`flex-1 flex flex-col items-center gap-1.5 transition-all duration-500 font-black ${
+              className={`flex-1 flex flex-col items-center gap-1.5 transition-all duration-500 ${
                 currentTab === tab.id ? 'text-indigo-600' : 'text-slate-300'
               }`}
             >
@@ -838,7 +628,8 @@ function App() {
 
           {/* 中央 FAB */}
           <div className="flex-1 flex justify-center -mt-12">
-            <button 
+            <button
+              aria-label="新增紀錄"
               onClick={() => { setIsEditing(null); setShowForm(true); }}
               className="w-16 h-16 bg-slate-900 text-white rounded-full flex items-center justify-center text-3xl shadow-2xl active:scale-90 transition-all border-4 border-white"
             >
@@ -854,7 +645,7 @@ function App() {
             <button
               key={tab.id}
               onClick={() => setCurrentTab(tab.id as TabType)}
-              className={`flex-1 flex flex-col items-center gap-1.5 transition-all duration-500 font-black ${
+              className={`flex-1 flex flex-col items-center gap-1.5 transition-all duration-500 ${
                 currentTab === tab.id ? 'text-indigo-600' : 'text-slate-300'
               }`}
             >
@@ -876,12 +667,20 @@ function App() {
           records={records}
           onSave={handleSaveRecord}
           onCancel={() => { setShowForm(false); setIsEditing(null); }}
-          sleepStartTime={sleepStartTime}
+          activeSleep={activeSleep}
           onStartSleep={handleStartSleep}
-          onWakeUp={handleWakeUp}
-          now={now}
+          onFinishSleep={handleFinishSleep}
         />
       </BottomSheet>
+
+      <ConfirmDialog
+        isOpen={deleteTarget !== null}
+        title="刪除紀錄"
+        message="確定要刪除這筆紀錄嗎？此操作無法復原。"
+        confirmLabel="刪除"
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   );
 }

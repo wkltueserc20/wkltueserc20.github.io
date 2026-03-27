@@ -1,17 +1,25 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
   background-color: #f3f4f6;
   color: #1f2937;
 }
 
+.dark {
+  background-color: #0f172a;
+  color: #e2e8f0;
+  color-scheme: dark;
+}
+
 body {
   margin: 0;
   min-height: 100vh;
-  overflow-x: hidden; /* 防止 iOS 水平震動 */
+  overflow-x: hidden;
   width: 100%;
   position: relative;
-  -webkit-tap-highlight-color: transparent; /* 移除點擊藍框 */
+  -webkit-tap-highlight-color: transparent;
 }
 
 #root {
@@ -19,7 +27,6 @@ body {
   overflow-x: hidden;
 }
 
-/* 強化字體渲染 */
 * {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;

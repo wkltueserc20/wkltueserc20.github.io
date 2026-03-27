@@ -1,4 +1,4 @@
-import type { Record } from '../types';
+import type { Record, RecordType, MilkType } from '../types';
 
 export const parseCSVLine = (t: string) => {
   const res = [];
@@ -23,6 +23,9 @@ export const generateCSVString = (records: Record[]) => {
   return csv;
 };
 
+const VALID_TYPES = new Set<string>(['feeding', 'sleep', 'growth']);
+const VALID_MILK = new Set<string>(['formula', 'breast']);
+
 export const csvToRecords = (csvContent: string): Record[] => {
   const lines = csvContent.split('\n').filter((l) => l.trim() !== '').slice(1);
   const records: Record[] = [];
@@ -31,12 +34,14 @@ export const csvToRecords = (csvContent: string): Record[] => {
     if (c.length < 11) return;
     const ts = Number(c[8]);
     if (isNaN(ts)) return;
+    const recordType = c[2];
+    if (!VALID_TYPES.has(recordType)) return;
     records.push({
       id: c[0] || crypto.randomUUID(),
       time: c[1],
       timestamp: ts,
-      type: c[2] as any,
-      milkType: c[3] as any,
+      type: recordType as RecordType,
+      milkType: VALID_MILK.has(c[3]) ? (c[3] as MilkType) : undefined,
       amount: c[4] ? Number(c[4]) : undefined,
       weight: c[6] ? Number(c[6]) : undefined,
       height: c[7] ? Number(c[7]) : undefined,

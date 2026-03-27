@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(openspec new:*)",
+      "Bash(openspec status:*)",
+      "Bash(openspec instructions:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npx vite:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(find /c/Users/wkltu/wkltueserc20.github.io -name *GAS* -o -name *gas* -o -name *google*)",
+      "Bash(npx wrangler:*)",
+      "Bash(curl:*)",
+      "Bash(npx node:*)",
+      "Bash(npm run:*)",
+      "Bash(cp:*)",
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(ls -la dist/assets/*.js)",
+      "Bash(ls -la C:/Users/wkltu/wkltueserc20.github.io/dist/assets/*.js)",
+      "Bash(find C:Userswkltuwkltueserc20.github.io -name tailwind.config.* -o -name tailwind.json)"
+    ]
+  }
+}

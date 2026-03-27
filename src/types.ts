@@ -15,17 +15,15 @@ export interface Record {
   note?: string;
   updatedAt?: number;
   isDeleted?: boolean;
+  deviceName?: string;
 }
 
 export interface BabyInfo {
   name: string;
   birthday: string;
   avatar?: string;
-  lineToken?: string;
-  lineUserId?: string;
-  lineEnabled?: boolean;
-  gasUrl?: string;
-  googleClientId?: string;
-  googleFolderId?: string;
+  syncUrl?: string;
   syncSecret?: string;
+  feedIntervalHours?: number;
+  deviceName?: string;
 }
