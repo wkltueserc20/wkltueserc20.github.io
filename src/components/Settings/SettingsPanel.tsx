@@ -111,6 +111,41 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         </button>
       </div>
 
+      {/* Manual */}
+      <div className={cardCls}>
+        <h3 className="text-xs text-slate-400 uppercase tracking-widest px-1 font-semibold">📖 操作手冊</h3>
+        <section className="space-y-1.5">
+          <h4 className="text-xs bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 px-3 py-1.5 rounded-lg inline-block font-semibold">🍼 餵奶紀錄</h4>
+          <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+            新增餵奶紀錄後，首頁會顯示距離下一餐的倒數計時（間隔可在偏好設定中調整）。
+            <br />• <b>深夜靜音：</b> 23:00～01:00 的紀錄不會顯示倒數。
+          </p>
+        </section>
+        <section className="space-y-1.5">
+          <h4 className="text-xs bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 px-3 py-1.5 rounded-lg inline-block font-semibold">☁️ 雲端同步</h4>
+          <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+            透過 Cloudflare 雲端實現<b>多設備即時同步</b>。
+            <br />• <b>快速同步：</b> 每次儲存自動同步，延遲不到 1 秒。
+            <br />• <b>多人協作：</b> 家人共用同一組同步密碼即可共享資料。
+          </p>
+        </section>
+        <section className="space-y-1.5">
+          <h4 className="text-xs bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 px-3 py-1.5 rounded-lg inline-block font-semibold">📶 離線支援 (PWA)</h4>
+          <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+            支援<b>完全斷網紀錄</b>。加入主畫面後即便飛航模式也能秒開，離線紀錄連線後自動併入雲端。
+          </p>
+        </section>
+        <section className="space-y-1.5">
+          <h4 className="text-xs bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 px-3 py-1.5 rounded-lg inline-block font-semibold">⚙️ 故障排除</h4>
+          <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+            若資料未同步，請嘗試：
+            <br />1. 點擊上方 <b>「立即雙向同步」</b> 按鈕。
+            <br />2. 確認同步 URL 與密碼是否正確。
+            <br />3. 確認網路連線正常。
+          </p>
+        </section>
+      </div>
+
       {/* Footer */}
       <div className="text-center">
         <button onClick={resetBabyInfo} className="w-full p-5 bg-slate-200 dark:bg-slate-700 text-slate-500 rounded-2xl text-xs uppercase active:scale-95 transition-all">重新設定寶寶</button>

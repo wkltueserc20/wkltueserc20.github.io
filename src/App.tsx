@@ -15,7 +15,6 @@ const StatsTab = lazy(() => import('./components/Stats/StatsTab').then(m => ({ d
 import { RecordForm } from './components/Records/RecordForm';
 import { RecordList } from './components/Records/RecordList';
 import { SettingsPanel } from './components/Settings/SettingsPanel';
-import { ManualTab } from './components/ManualTab';
 import { SyncStatus } from './components/Layout/SyncStatus';
 import { BottomSheet } from './components/Layout/BottomSheet';
 import { SleepBanner } from './components/Layout/SleepBanner';
@@ -433,7 +432,7 @@ function App() {
 
   const isTodaySearch = searchDate === new Date().toLocaleDateString('en-CA');
 
-  const TAB_ORDER: TabType[] = ['home', 'stats', 'vaccine', 'manual', 'settings'];
+  const TAB_ORDER: TabType[] = ['home', 'stats', 'vaccine', 'settings'];
   const swipeRef = useRef<{ x: number; y: number } | null>(null);
   const handleSwipeStart = (e: React.TouchEvent) => {
     swipeRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
@@ -647,7 +646,6 @@ function App() {
           />
         )}
 
-        {currentTab === 'manual' && <ManualTab />}
         </div>
         </>}
       </main>
@@ -683,7 +681,6 @@ function App() {
 
           {[
             { id: 'vaccine', icon: '💉', label: '疫苗' },
-            { id: 'manual', icon: '📖', label: '手冊' },
             { id: 'settings', icon: '⚙️', label: '設定' },
           ].map((tab) => (
             <button
