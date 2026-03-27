@@ -85,6 +85,27 @@ export const VaccinePage: React.FC<VaccinePageProps> = ({
   const formatDate = (ts: number) => new Date(ts).toLocaleDateString('zh-TW', { year: 'numeric', month: 'numeric', day: 'numeric' });
   const daysUntil = (ts: number) => Math.ceil((ts - Date.now()) / 86400000);
 
+  const formatAgeAtShot = (shotTs: number): string => {
+    const birth = new Date(babyInfo.birthday);
+    const shot = new Date(shotTs);
+    let years = shot.getFullYear() - birth.getFullYear();
+    let months = shot.getMonth() - birth.getMonth();
+    let days = shot.getDate() - birth.getDate();
+    if (days < 0) {
+      months--;
+      days += new Date(shot.getFullYear(), shot.getMonth(), 0).getDate();
+    }
+    if (months < 0) {
+      years--;
+      months += 12;
+    }
+    const parts = [];
+    if (years > 0) parts.push(`${years}歲`);
+    if (months > 0) parts.push(`${months}個月`);
+    if (days > 0 || parts.length === 0) parts.push(`${days}天`);
+    return parts.join('');
+  };
+
   return (
     <div className="space-y-6 pb-16 animate-in fade-in duration-500">
       {/* Actions */}
@@ -171,6 +192,7 @@ export const VaccinePage: React.FC<VaccinePageProps> = ({
                 <div key={group.dateKey}>
                   <div className="flex items-center gap-2 mb-2 px-1">
                     <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">{group.label}</span>
+                    <span className="text-xs text-slate-400">寶寶 {formatAgeAtShot(group.items[0].endTimestamp!)}</span>
                     <div className="flex-1 h-px bg-emerald-100 dark:bg-emerald-900/40" />
                   </div>
                   <div className="border-l-2 border-emerald-200 dark:border-emerald-800 ml-1 pl-3 space-y-2">
