@@ -23,6 +23,8 @@ interface ClientRecord {
   updatedAt: number;
   isDeleted?: boolean;
   deviceName?: string;
+  subType?: string;
+  label?: string;
 }
 
 interface DbRow {
@@ -39,6 +41,8 @@ interface DbRow {
   updated_at: number;
   is_deleted: number;
   device_name: string;
+  sub_type: string;
+  label: string;
 }
 
 const CORS_HEADERS = {
@@ -69,6 +73,8 @@ function rowToClient(row: DbRow): ClientRecord {
     updatedAt: row.updated_at,
     isDeleted: row.is_deleted === 1,
     deviceName: row.device_name || undefined,
+    subType: row.sub_type || undefined,
+    label: row.label || undefined,
   };
 }
 
@@ -175,8 +181,8 @@ async function handleSync(request: Request, env: Env): Promise<Response> {
       const batch = changes.slice(i, i + batchSize);
       const stmts = batch.map((r) => {
         return env.DB.prepare(
-          `INSERT INTO records (id, type, milk_type, time, timestamp, end_ts, amount, weight, height, note, updated_at, is_deleted, device_name)
-           VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)
+          `INSERT INTO records (id, type, milk_type, time, timestamp, end_ts, amount, weight, height, note, updated_at, is_deleted, device_name, sub_type, label)
+           VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)
            ON CONFLICT(id) DO UPDATE SET
              type = CASE WHEN ?11 > records.updated_at THEN ?2 ELSE records.type END,
              milk_type = CASE WHEN ?11 > records.updated_at THEN ?3 ELSE records.milk_type END,
@@ -189,7 +195,9 @@ async function handleSync(request: Request, env: Env): Promise<Response> {
              note = CASE WHEN ?11 > records.updated_at THEN ?10 ELSE records.note END,
              updated_at = CASE WHEN ?11 > records.updated_at THEN ?11 ELSE records.updated_at END,
              is_deleted = CASE WHEN ?11 > records.updated_at THEN ?12 ELSE records.is_deleted END,
-             device_name = CASE WHEN ?11 > records.updated_at THEN ?13 ELSE records.device_name END`
+             device_name = CASE WHEN ?11 > records.updated_at THEN ?13 ELSE records.device_name END,
+             sub_type = CASE WHEN ?11 > records.updated_at THEN ?14 ELSE records.sub_type END,
+             label = CASE WHEN ?11 > records.updated_at THEN ?15 ELSE records.label END`
         ).bind(
           r.id,
           r.type,
@@ -204,6 +212,8 @@ async function handleSync(request: Request, env: Env): Promise<Response> {
           r.updatedAt,
           r.isDeleted ? 1 : 0,
           r.deviceName ?? '',
+          r.subType ?? '',
+          r.label ?? '',
         );
       });
       await env.DB.batch(stmts);

@@ -30,6 +30,10 @@ export const RecordForm: React.FC<RecordFormProps> = ({
   const [note, setNote] = useState<string>('');
   const [recordTime, setRecordTime] = useState<string>('');
   const [recordEndTime, setRecordEndTime] = useState<string>('');
+  const [foodCategory, setFoodCategory] = useState('');
+  const [foodName, setFoodName] = useState('');
+  const [foodGrams, setFoodGrams] = useState(30);
+  const [temperature, setTemperature] = useState(36.5);
 
   useEffect(() => {
     if (isEditing) {
@@ -62,14 +66,17 @@ export const RecordForm: React.FC<RecordFormProps> = ({
     onSave({
       type,
       milkType: type === 'feeding' ? milkType : undefined,
-      amount: type === 'feeding' || type === 'sleep' ? amount : undefined,
+      amount: type === 'feeding' || type === 'sleep' ? amount : type === 'babyfood' ? foodGrams : type === 'temperature' ? temperature : undefined,
       weight: type === 'growth' ? weight : undefined,
       height: type === 'growth' ? height : undefined,
+      subType: type === 'babyfood' ? foodCategory : undefined,
+      label: type === 'babyfood' ? foodName : undefined,
       note, recordTime,
       recordEndTime: type === 'sleep' ? recordEndTime : undefined,
     });
     if (!isEditing) {
       setAmount(180); setNote(''); setWeight(3.5); setHeight(50); setMilkType('breast'); setType('feeding');
+      setFoodCategory(''); setFoodName(''); setFoodGrams(30); setTemperature(36.5);
     }
   };
 
@@ -93,15 +100,21 @@ export const RecordForm: React.FC<RecordFormProps> = ({
       )}
 
       <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-xl p-6 border border-slate-100 dark:border-slate-700 space-y-6 animate-in slide-in-from-bottom-6 duration-500 text-slate-800 dark:text-slate-200 overflow-hidden">
-        <div className="flex bg-slate-50 dark:bg-slate-700 p-1.5 rounded-xl">
-          {(['feeding', 'sleep', 'growth'] as RecordType[]).map((t) => (
+        <div className="flex bg-slate-50 dark:bg-slate-700 p-1.5 rounded-xl flex-wrap gap-1">
+          {([
+            { key: 'feeding', label: '餵奶🍼' },
+            { key: 'sleep', label: '睡眠💤' },
+            { key: 'babyfood', label: '副食品🥦' },
+            { key: 'temperature', label: '體溫🌡️' },
+            { key: 'growth', label: '成長🌱' },
+          ] as { key: RecordType; label: string }[]).map((t) => (
             <button
-              key={t} type="button" onClick={() => setType(t)}
-              className={`flex-1 py-3 rounded-xl text-xs transition-all font-semibold ${
-                type === t ? 'bg-white dark:bg-slate-600 shadow-md text-indigo-600 dark:text-indigo-400' : 'text-slate-400'
+              key={t.key} type="button" onClick={() => setType(t.key)}
+              className={`flex-1 min-w-[60px] py-2.5 rounded-xl text-xs transition-all font-semibold ${
+                type === t.key ? 'bg-white dark:bg-slate-600 shadow-md text-indigo-600 dark:text-indigo-400' : 'text-slate-400'
               }`}
             >
-              {t === 'feeding' ? '餵奶 🍼' : t === 'sleep' ? '睡眠 💤' : '成長 🌱'}
+              {t.label}
             </button>
           ))}
         </div>
@@ -182,10 +195,55 @@ export const RecordForm: React.FC<RecordFormProps> = ({
             </div>
           )}
 
+          {type === 'babyfood' && (
+            <div className="space-y-4 animate-in fade-in">
+              <div>
+                <label className="text-xs text-slate-400 uppercase tracking-widest px-1 mb-1.5 block font-semibold">食物類別</label>
+                <div className="flex gap-2 flex-wrap">
+                  {['米糊', '蔬菜泥', '水果泥', '蛋白質', '其他'].map(c => (
+                    <button key={c} type="button" onClick={() => setFoodCategory(c)}
+                      className={`px-4 py-2 rounded-xl text-xs transition-all font-semibold ${
+                        foodCategory === c ? 'bg-emerald-600 text-white shadow-md' : 'bg-slate-50 dark:bg-slate-700 text-slate-400 border border-slate-100 dark:border-slate-600'
+                      }`}
+                    >{c}</button>
+                  ))}
+                </div>
+                {foodCategory === '其他' && (
+                  <input type="text" value={foodCategory === '其他' ? '' : foodCategory} onChange={e => setFoodCategory(e.target.value || '其他')} placeholder="自訂類別..." className={`${inputCls} mt-2`} />
+                )}
+              </div>
+              <input type="text" value={foodName} onChange={e => setFoodName(e.target.value)} placeholder="食物名稱（例：紅蘿蔔泥）" className={inputCls} />
+              <div className="flex items-center justify-between bg-slate-50 dark:bg-slate-700 p-4 rounded-2xl border border-slate-100 dark:border-slate-600">
+                <button type="button" onClick={() => setFoodGrams(Math.max(0, foodGrams - 5))} className="w-12 h-12 bg-white dark:bg-slate-600 rounded-xl shadow text-xl text-emerald-600 dark:text-emerald-400 active:scale-90">-</button>
+                <div className="text-center">
+                  <span className="text-4xl text-slate-900 dark:text-slate-100 tracking-tighter font-bold">{foodGrams}</span>
+                  <span className="text-xs ml-2 text-slate-400 uppercase">g</span>
+                </div>
+                <button type="button" onClick={() => setFoodGrams(foodGrams + 5)} className="w-12 h-12 bg-white dark:bg-slate-600 rounded-xl shadow text-xl text-emerald-600 dark:text-emerald-400 active:scale-90">+</button>
+              </div>
+            </div>
+          )}
+
+          {type === 'temperature' && (
+            <div className="space-y-4 animate-in fade-in">
+              <div className={`flex items-center justify-between p-4 rounded-2xl border ${
+                temperature >= 37.5 ? 'bg-rose-50 dark:bg-rose-900/20 border-rose-200 dark:border-rose-800' : 'bg-slate-50 dark:bg-slate-700 border-slate-100 dark:border-slate-600'
+              }`}>
+                <button type="button" onClick={() => setTemperature(Math.max(35, +(temperature - 0.1).toFixed(1)))} className="w-12 h-12 bg-white dark:bg-slate-600 rounded-xl shadow text-xl text-indigo-600 dark:text-indigo-400 active:scale-90">-</button>
+                <div className="text-center">
+                  <span className={`text-4xl tracking-tighter font-bold ${temperature >= 37.5 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-900 dark:text-slate-100'}`}>{temperature.toFixed(1)}</span>
+                  <span className="text-xs ml-1 text-slate-400">°C</span>
+                  {temperature >= 37.5 && <div className="text-xs text-rose-500 mt-1">發燒</div>}
+                </div>
+                <button type="button" onClick={() => setTemperature(+(temperature + 0.1).toFixed(1))} className="w-12 h-12 bg-white dark:bg-slate-600 rounded-xl shadow text-xl text-indigo-600 dark:text-indigo-400 active:scale-90">+</button>
+              </div>
+            </div>
+          )}
+
           <input type="text" value={note} onChange={(e) => setNote(e.target.value)} placeholder="備註內容..." className={inputCls} />
         </div>
 
-        {(type !== 'sleep' || isEditing) && (
+        {(type !== 'sleep' || isEditing) && type !== 'vaccine' && (
           <div className="flex gap-4 pt-2">
             <button onClick={handleSubmit} className="flex-[2] bg-indigo-600 text-white py-4 rounded-2xl font-semibold shadow-xl active:scale-95 transition-transform text-sm uppercase">
               {isEditing ? '儲存修改' : '新增紀錄'}

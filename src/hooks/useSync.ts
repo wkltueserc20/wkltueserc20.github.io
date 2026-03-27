@@ -76,6 +76,8 @@ export const useSync = (babyInfo: BabyInfo | null, showToast: (msg: string) => v
           updatedAt: r.updatedAt,
           isDeleted: r.isDeleted || false,
           deviceName: r.deviceName || undefined,
+          subType: r.subType || undefined,
+          label: r.label || undefined,
         }));
 
         const finalMerged = mergeRecords(latestLocal, remoteRecords);

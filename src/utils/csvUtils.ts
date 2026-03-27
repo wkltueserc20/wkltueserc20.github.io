@@ -23,7 +23,7 @@ export const generateCSVString = (records: Record[]) => {
   return csv;
 };
 
-const VALID_TYPES = new Set<string>(['feeding', 'sleep', 'growth']);
+const VALID_TYPES = new Set<string>(['feeding', 'sleep', 'growth', 'babyfood', 'temperature', 'vaccine']);
 const VALID_MILK = new Set<string>(['formula', 'breast']);
 
 export const csvToRecords = (csvContent: string): Record[] => {

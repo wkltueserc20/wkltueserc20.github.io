@@ -1,6 +1,6 @@
-export type RecordType = 'feeding' | 'sleep' | 'growth';
+export type RecordType = 'feeding' | 'sleep' | 'growth' | 'babyfood' | 'temperature' | 'vaccine';
 export type MilkType = 'formula' | 'breast';
-export type TabType = 'home' | 'stats' | 'settings' | 'manual';
+export type TabType = 'home' | 'stats' | 'vaccine' | 'manual' | 'settings';
 
 export interface Record {
   id: string;
@@ -16,6 +16,8 @@ export interface Record {
   updatedAt?: number;
   isDeleted?: boolean;
   deviceName?: string;
+  subType?: string;
+  label?: string;
 }
 
 export interface BabyInfo {

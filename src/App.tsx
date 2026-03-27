@@ -23,6 +23,7 @@ import { ConfirmDialog } from './components/Layout/ConfirmDialog';
 import { QuickRecord } from './components/Home/QuickRecord';
 import { SyncGuide } from './components/Home/SyncGuide';
 import { FeedCountdown } from './components/Home/FeedCountdown';
+import { VaccinePage } from './components/Vaccine/VaccinePage';
 import type { MilkType } from './types';
 
 const MS_PER_DAY = 86400000;
@@ -212,6 +213,8 @@ function App() {
       amount: fAm,
       weight: recordData.weight,
       height: recordData.height,
+      subType: recordData.subType,
+      label: recordData.label,
       updatedAt: Date.now(),
       deviceName: myDevice,
     };
@@ -277,6 +280,38 @@ function App() {
     haptic();
     showToast(`${milkType === 'formula' ? '配方' : '母奶'} ${amount}ml ✨`);
     fullSync(updatedRecords, setAllRecords);
+  };
+
+  const handleAddVaccine = (data: Omit<Record, 'id' | 'time' | 'updatedAt'>) => {
+    const nowTs = Date.now();
+    const newRec: Record = {
+      ...data,
+      id: crypto.randomUUID(),
+      time: new Date(data.timestamp).toLocaleString('zh-TW'),
+      updatedAt: nowTs,
+      deviceName: myDevice,
+    };
+    addRecord(newRec);
+    const updated = [newRec, ...records];
+    fullSync(updated, setAllRecords);
+  };
+
+  const handleMarkVaccineDone = (record: Record, actualDate: number) => {
+    const updatedRec = { ...record, endTimestamp: actualDate, updatedAt: Date.now() };
+    updateRecord(updatedRec);
+    haptic();
+    const updated = records.map(r => r.id === record.id ? updatedRec : r);
+    fullSync(updated, setAllRecords);
+    showToast(`${record.subType} ${record.label} 已施打 ✅`);
+  };
+
+  const handleEditVaccine = (record: Record, newEndTimestamp: number, newNote: string) => {
+    const updatedRec = { ...record, endTimestamp: newEndTimestamp, note: newNote, updatedAt: Date.now() };
+    updateRecord(updatedRec);
+    haptic();
+    const updated = records.map(r => r.id === record.id ? updatedRec : r);
+    fullSync(updated, setAllRecords);
+    showToast(`${record.subType} ${record.label} 已更新 ✅`);
   };
 
   const handlePullRefresh = useCallback(() => {
@@ -398,7 +433,7 @@ function App() {
 
   const isTodaySearch = searchDate === new Date().toLocaleDateString('en-CA');
 
-  const TAB_ORDER: TabType[] = ['home', 'stats', 'manual', 'settings'];
+  const TAB_ORDER: TabType[] = ['home', 'stats', 'vaccine', 'manual', 'settings'];
   const swipeRef = useRef<{ x: number; y: number } | null>(null);
   const handleSwipeStart = (e: React.TouchEvent) => {
     swipeRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
@@ -602,6 +637,16 @@ function App() {
           />
         )}
 
+        {currentTab === 'vaccine' && babyInfo && (
+          <VaccinePage
+            records={records}
+            babyInfo={babyInfo}
+            onAddVaccine={handleAddVaccine}
+            onMarkDone={handleMarkVaccineDone}
+            onEditVaccine={handleEditVaccine}
+          />
+        )}
+
         {currentTab === 'manual' && <ManualTab />}
         </div>
         </>}
@@ -617,40 +662,39 @@ function App() {
             <button
               key={tab.id}
               onClick={() => setCurrentTab(tab.id as TabType)}
-              className={`flex-1 flex flex-col items-center gap-1.5 transition-all duration-500 ${
+              className={`flex-1 flex flex-col items-center gap-1 transition-all duration-500 ${
                 currentTab === tab.id ? 'text-indigo-600' : 'text-slate-300'
               }`}
             >
-              <span className={`text-2xl transition-all duration-500 ${currentTab === tab.id ? '' : 'grayscale opacity-40 scale-90'}`}>{tab.icon}</span>
-              <span className={`text-[10px] transition-all duration-500 ${currentTab === tab.id ? 'opacity-100' : 'opacity-0'}`}>{tab.label}</span>
+              <span className={`text-xl transition-all duration-500 ${currentTab === tab.id ? '' : 'grayscale opacity-40 scale-90'}`}>{tab.icon}</span>
+              <span className={`text-[9px] transition-all duration-500 ${currentTab === tab.id ? 'opacity-100' : 'opacity-0'}`}>{tab.label}</span>
             </button>
           ))}
 
-          {/* 中央 FAB */}
-          <div className="flex-1 flex justify-center -mt-12">
+          <div className="flex justify-center -mt-10">
             <button
               aria-label="新增紀錄"
               onClick={() => { setIsEditing(null); setShowForm(true); }}
-              className="w-16 h-16 bg-slate-900 text-white rounded-full flex items-center justify-center text-3xl shadow-2xl active:scale-90 transition-all border-4 border-white"
+              className="w-14 h-14 bg-slate-900 dark:bg-indigo-600 text-white rounded-full flex items-center justify-center text-2xl shadow-2xl active:scale-90 transition-all border-4 border-white dark:border-slate-800"
             >
               ＋
             </button>
           </div>
 
-          {/* 右側 2 個 Tabs */}
           {[
+            { id: 'vaccine', icon: '💉', label: '疫苗' },
             { id: 'manual', icon: '📖', label: '手冊' },
             { id: 'settings', icon: '⚙️', label: '設定' },
           ].map((tab) => (
             <button
               key={tab.id}
               onClick={() => setCurrentTab(tab.id as TabType)}
-              className={`flex-1 flex flex-col items-center gap-1.5 transition-all duration-500 ${
+              className={`flex-1 flex flex-col items-center gap-1 transition-all duration-500 ${
                 currentTab === tab.id ? 'text-indigo-600' : 'text-slate-300'
               }`}
             >
-              <span className={`text-2xl transition-all duration-500 ${currentTab === tab.id ? '' : 'grayscale opacity-40 scale-90'}`}>{tab.icon}</span>
-              <span className={`text-[10px] transition-all duration-500 ${currentTab === tab.id ? 'opacity-100' : 'opacity-0'}`}>{tab.label}</span>
+              <span className={`text-xl transition-all duration-500 ${currentTab === tab.id ? '' : 'grayscale opacity-40 scale-90'}`}>{tab.icon}</span>
+              <span className={`text-[9px] transition-all duration-500 ${currentTab === tab.id ? 'opacity-100' : 'opacity-0'}`}>{tab.label}</span>
             </button>
           ))}
         </div>

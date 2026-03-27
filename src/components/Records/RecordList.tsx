@@ -42,6 +42,8 @@ export const RecordList: React.FC<RecordListProps> = ({
           <option value="all">全部紀錄</option>
           <option value="feeding">餵奶</option>
           <option value="sleep">睡眠</option>
+          <option value="babyfood">副食品</option>
+          <option value="temperature">體溫</option>
           <option value="growth">成長</option>
         </select>
       </div>
@@ -61,9 +63,15 @@ export const RecordList: React.FC<RecordListProps> = ({
                   <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-xl ${
                     record.type === 'feeding' ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-500'
                     : record.type === 'sleep' ? 'bg-purple-50 dark:bg-purple-900/30 text-purple-500'
+                    : record.type === 'babyfood' ? 'bg-green-50 dark:bg-green-900/30 text-green-500'
+                    : record.type === 'temperature' ? 'bg-orange-50 dark:bg-orange-900/30 text-orange-500'
                     : 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600'
                   }`}>
-                    {record.type === 'feeding' ? (record.milkType === 'formula' ? '🍼' : '🤱') : record.type === 'sleep' ? '💤' : '🌱'}
+                    {record.type === 'feeding' ? (record.milkType === 'formula' ? '🍼' : '🤱')
+                     : record.type === 'sleep' ? '💤'
+                     : record.type === 'babyfood' ? '🥦'
+                     : record.type === 'temperature' ? '🌡️'
+                     : '🌱'}
                   </div>
                   <div>
                     <div className="text-sm text-slate-900 dark:text-slate-100 leading-tight mb-1 font-semibold">
@@ -71,6 +79,10 @@ export const RecordList: React.FC<RecordListProps> = ({
                         ? `${record.amount}ml ${record.milkType === 'formula' ? '配方' : '母奶'}`
                         : record.type === 'sleep'
                         ? `${Math.floor((record.amount || 0) / 60)}時 ${(record.amount || 0) % 60}分`
+                        : record.type === 'babyfood'
+                        ? `${record.label || '副食品'} ${record.amount}g`
+                        : record.type === 'temperature'
+                        ? <span className={record.amount && record.amount >= 37.5 ? 'text-rose-600' : ''}>{record.amount}°C{record.amount && record.amount >= 37.5 ? ' ⚠️' : ''}</span>
                         : `${record.weight}kg / ${record.height}cm`}
                     </div>
                     <div className="flex items-center gap-2 flex-wrap">
