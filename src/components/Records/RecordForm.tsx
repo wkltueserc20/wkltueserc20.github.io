@@ -100,23 +100,38 @@ export const RecordForm: React.FC<RecordFormProps> = ({
       )}
 
       <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-xl p-6 border border-slate-100 dark:border-slate-700 space-y-6 animate-in slide-in-from-bottom-6 duration-500 text-slate-800 dark:text-slate-200 overflow-hidden">
-        <div className="flex bg-slate-50 dark:bg-slate-700 p-1.5 rounded-xl flex-wrap gap-1">
-          {([
-            { key: 'feeding', label: '餵奶🍼' },
-            { key: 'sleep', label: '睡眠💤' },
-            { key: 'babyfood', label: '副食品🥦' },
-            { key: 'temperature', label: '體溫🌡️' },
-            { key: 'growth', label: '成長🌱' },
-          ] as { key: RecordType; label: string }[]).map((t) => (
-            <button
-              key={t.key} type="button" onClick={() => setType(t.key)}
-              className={`flex-1 min-w-[60px] py-2.5 rounded-xl text-xs transition-all font-semibold ${
-                type === t.key ? 'bg-white dark:bg-slate-600 shadow-md text-indigo-600 dark:text-indigo-400' : 'text-slate-400'
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
+        <div className="bg-slate-50 dark:bg-slate-700 p-1.5 rounded-xl space-y-1">
+          <div className="flex gap-1">
+            {([
+              { key: 'feeding', label: '餵奶🍼' },
+              { key: 'sleep', label: '睡眠💤' },
+            ] as { key: RecordType; label: string }[]).map((t) => (
+              <button
+                key={t.key} type="button" onClick={() => setType(t.key)}
+                className={`flex-1 py-3 rounded-xl text-sm transition-all font-semibold ${
+                  type === t.key ? 'bg-white dark:bg-slate-600 shadow-md text-indigo-600 dark:text-indigo-400' : 'text-slate-400'
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+          <div className="flex gap-1">
+            {([
+              { key: 'babyfood', label: '副食品🥦' },
+              { key: 'temperature', label: '體溫🌡️' },
+              { key: 'growth', label: '成長🌱' },
+            ] as { key: RecordType; label: string }[]).map((t) => (
+              <button
+                key={t.key} type="button" onClick={() => setType(t.key)}
+                className={`flex-1 py-2 rounded-xl text-xs transition-all font-semibold ${
+                  type === t.key ? 'bg-white dark:bg-slate-600 shadow-md text-indigo-600 dark:text-indigo-400' : 'text-slate-400'
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         <div className="space-y-4 overflow-hidden">
