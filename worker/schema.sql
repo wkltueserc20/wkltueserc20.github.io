@@ -10,7 +10,10 @@ CREATE TABLE IF NOT EXISTS records (
   height      REAL,
   note        TEXT DEFAULT '',
   updated_at  INTEGER NOT NULL,
-  is_deleted  INTEGER DEFAULT 0
+  is_deleted  INTEGER DEFAULT 0,
+  device_name TEXT DEFAULT '',
+  sub_type    TEXT DEFAULT '',
+  label       TEXT DEFAULT ''
 );
 
 CREATE INDEX IF NOT EXISTS idx_records_updated_at ON records(updated_at);
