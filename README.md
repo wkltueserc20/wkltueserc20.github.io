@@ -1,31 +1,71 @@
-# 👶 育兒助手 - 現代化高品質 Web App (v9.8)
+# 👶 育兒助手 (v9.9)
 
-這是一個專為父母設計的高品質育兒紀錄助手。採用 **React 19** + **Vite** 構建，具備 **PWA** 離線能力與 **Google Drive** 自動雙向同步。
+專為父母設計的育兒紀錄 Web App。React 19 + Vite 構建，PWA 離線可用，透過 **Cloudflare Workers + D1** 實現多裝置即時同步。
 
-[![🚀 在線演示](https://img.shields.io/badge/演示-wkltueserc20.github.io-6366f1?style=for-the-badge&logo=react)](https://wkltueserc20.github.io)
-[![📖 功能手冊](https://img.shields.io/badge/手冊-README_FEATURES-10b981?style=for-the-badge&logo=markdown)](README_FEATURES.md)
-
----
-
-## ✨ 核心亮點 (v9.8)
-
-- **⚡ 極速 SmartSync 協定**：將 Client-GAS 通訊從 2 次 HTTP 請求合併為 **1 次**，GAS 內部使用 `fetchAll()` 並行化所有 Drive API 呼叫，同步時間從 20+ 秒大幅降至 3-5 秒。
-- **🔄 自適應推送 (Dirty Date Tracking)**：自動追蹤有變更的日期，不再固定只推送今天和昨天，補登舊日期紀錄也能正確同步。
-- **☀️ 睡眠日期修正**：以起床時間作為歸屬，完美處理跨夜覺統計。
-- **💤 睡眠即時監控**：首頁動態橫幅顯示入睡時長，支援一鍵起床紀錄。
-- **📂 雲端自動歸檔**：Google Drive 備份自動收納於專屬資料夾，整潔有序。
-- **📈 統計區間切換**：支援 7天 / 14天 / 28天 趨勢觀察。
-- **📱 絲滑手勢互動**：專為 iPhone 優化的左滑刪除與軸向鎖定技術。
-- **🏗️ 現代化 FAB 佈局**：底部圓形動作按鈕與優雅的抽屜式表單 (Bottom Sheet)。
-- **☁️ 長效代理同步**：透過專屬 GAS 代理實現一次授權、數月有效的無感雲端同步。
-- **📊 智能數據洞察**：自動計算今日 vs 昨日奶量對比，提供長覺睡眠分析。
-- **🔌 多人協作**：支援多設備同時紀錄，資料自動合併不覆蓋。
+[![演示](https://img.shields.io/badge/線上版本-wkltueserc20.github.io-6366f1?style=for-the-badge&logo=react)](https://wkltueserc20.github.io)
 
 ---
 
-## 🚀 快速開始
+## ✨ 功能總覽
 
-### 本地開發
+### 日常紀錄
+- **餵奶**：配方奶 / 母奶，記錄毫升數，支援快速新增（預設帶入當下時間）
+- **睡眠**：記錄開始與結束時間，自動計算時長；跨夜覺以起床時間歸屬當日
+- **副食品**：記錄食物名稱、類別、克數
+- **體溫**：記錄數值，> 37.5°C 自動顯示警示
+- **成長**：記錄身高、體重
+
+### 疫苗管理
+- 內建台灣兒童預防接種時程表，依寶寶生日自動推算預定日期
+- 已施打 / 待施打分組顯示，可手動新增自訂疫苗
+- 支援新增、編輯、刪除
+
+### 奶粉管理
+- **使用記錄**：以奶粉品牌分群，記錄每罐開瓶與用完日期（可編輯）
+  - 使用中直接顯示；已用完預設折疊，旁邊顯示罐數
+- **店家價格表**：以「品牌 + 店家」為單位記錄定價，依品牌折疊顯示
+  - 新增一罐時選擇品牌 + 店家，自動帶入定價
+- 開瓶日期預設今天
+
+### 統計分析
+- 支援 7天 / 14天 / 28天 趨勢切換
+- 首頁統計卡片顯示今日 vs 昨日奶量對比
+- 最長連續睡眠（長覺）分析
+- 成長紀錄新鮮度提醒
+
+### 互動體驗
+- **底部 FAB 佈局**：中央圓形「＋」按鈕，抽屜式表單 (Bottom Sheet)
+- **左滑刪除**：滑動紀錄卡片揭示刪除，支援 Undo
+- **睡眠即時橫幅**：正在睡覺時首頁顯示已睡時長與一鍵起床
+- **下餐倒數**：根據最近餵奶紀錄自動計算下次時間
+- **深色模式**：跟隨系統或手動切換
+- **PWA**：可安裝至主畫面，離線可用
+
+---
+
+## ☁️ 同步架構
+
+```
+App (IndexedDB / Dexie)
+        │
+        │  POST /api/sync
+        │  { syncSecret, lastSyncAt, changes[] }
+        ▼
+Cloudflare Worker
+        │
+        ▼
+   Cloudflare D1 (SQLite)
+```
+
+- **同步方式**：增量同步，只傳送 `lastSyncAt` 之後有變動的紀錄
+- **衝突解決**：LWW (Last Write Wins)，以 `updatedAt` 時間戳決定勝負
+- **驗證**：`syncSecret` 共享密鑰
+- **設定**：在 App 設定頁填入 Cloudflare Worker URL 與 syncSecret 即可
+
+---
+
+## 🚀 本地開發
+
 ```bash
 git clone https://github.com/wkltueserc20/wkltueserc20.github.io.git
 cd wkltueserc20.github.io
@@ -37,17 +77,57 @@ npm run dev
 
 ## 🛠 技術規格
 
-- **Frontend**: React 19, TypeScript, Tailwind CSS v4, Framer Motion
-- **Database**: IndexedDB (via Dexie.js)
-- **Synchronization**: Google Drive API + Google Apps Script (GAS) SmartSync Proxy (fetchAll parallel)
-- **PWA**: Service Worker (via vite-plugin-pwa) for offline support
+| 項目 | 技術 |
+|------|------|
+| Frontend | React 19, TypeScript, Vite |
+| 樣式 | Tailwind CSS v4 |
+| 本地儲存 | IndexedDB (Dexie.js) |
+| 同步後端 | Cloudflare Workers + D1 |
+| PWA | vite-plugin-pwa (Service Worker) |
+| 部署 | GitHub Pages |
+
+**版本**：v9.9 (20260331)
 
 ---
 
-## 📂 更多文件
+## 📋 更新記錄
 
-- [📘 詳細功能與 LINE 通知設定手冊](README_FEATURES.md)
-- [📦 GAS 後端原始碼](openspec/GAS_SCRIPT.gs)
+### v9.9 (2026-03-31)
+- 新增奶粉管理頁面（使用記錄、店家價格表）
+- 將疫苗與奶粉整合至「📒 紀錄」頁籤（奶粉為預設）
+- 移除左右滑切換頁籤手勢
+
+### v9.8 (2026-03-26)
+- SmartSync 極速同步：單次請求完成增量同步
+- Dirty Date Tracking：自動追蹤有變更的日期，補登舊日期也能正確同步
+- Force Full Sync：可強制重新拉取 D1 全量資料
+
+### v9.7 (2026-03-25)
+- 重構同步通訊邏輯為單次 batchSync 請求
+- MD5 指紋校驗，只下載真正有變動的內容
+
+### v9.6 (2026-03-24)
+- 精準日期分群推送
+- Fresh Read 機制消除同步競爭
+- bulkPut 原子化資料庫操作
+
+### v9.5 (2026-03-10)
+- 睡眠歸屬日期修正：以起床時間為準
+
+### v9.4 (2026-03-10)
+- 睡眠即時監控橫幅
+- 跨日資料連貫性優化
+
+### v9.3 (2026-03-10)
+- 統計區間切換（7天 / 14天 / 28天）
+
+### v9.2 (2026-03-10)
+- FAB 佈局、Bottom Sheet 抽屜式表單
+- 左滑刪除手勢、iOS 軸向鎖定優化
+
+### v9.1 (2026-03-10)
+- 切換至 Cloudflare Workers + D1 同步架構
 
 ---
+
 *Created with ❤️ for better parenting.*
