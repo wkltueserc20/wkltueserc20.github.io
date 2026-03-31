@@ -140,7 +140,7 @@ export const SummaryCards: React.FC<SummaryCardsProps> = ({
         </div>
 
         <div className="pb-2 text-center">
-          <span className="text-[9px] text-slate-300 dark:text-slate-600 uppercase tracking-widest">長按查看詳情</span>
+          <span className="text-[10px] text-slate-400 dark:text-slate-500 tracking-wide">長按查看詳情</span>
         </div>
       </div>
 
@@ -184,7 +184,9 @@ export const SummaryCards: React.FC<SummaryCardsProps> = ({
                 )}
                 {stats.yesterday.sleepMins > 0 && (
                   <div className={`text-xs ${sleepDiff >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
-                    比昨天 {sleepDiff >= 0 ? '+' : ''}{sleepDiff} m
+                    比昨天 {sleepDiff >= 0 ? '+' : ''}{Math.abs(sleepDiff) >= 60
+                      ? `${sleepDiff < 0 ? '-' : ''}${Math.floor(Math.abs(sleepDiff) / 60)}時${Math.abs(sleepDiff) % 60}分`
+                      : `${sleepDiff}分`}
                   </div>
                 )}
               </div>

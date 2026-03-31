@@ -35,21 +35,30 @@ export const RecordList: React.FC<RecordListProps> = ({
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center px-3 text-left">
+      <div className="space-y-2 px-1">
         <h3 className="text-xs text-slate-400 uppercase tracking-widest font-semibold">紀錄清單</h3>
-        <select
-          value={filter}
-          onChange={(e) => setFilter(e.target.value as 'all' | RecordType)}
-          aria-label="篩選紀錄類型"
-          className="bg-transparent text-xs text-indigo-600 outline-none border-b-2 border-indigo-500/20 pb-1 font-semibold"
-        >
-          <option value="all">全部紀錄</option>
-          <option value="feeding">餵奶</option>
-          <option value="sleep">睡眠</option>
-          <option value="babyfood">副食品</option>
-          <option value="temperature">體溫</option>
-          <option value="growth">成長</option>
-        </select>
+        <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+          {([
+            { value: 'all', label: '全部' },
+            { value: 'feeding', label: '🍼 餵奶' },
+            { value: 'sleep', label: '💤 睡眠' },
+            { value: 'babyfood', label: '🥦 副食品' },
+            { value: 'temperature', label: '🌡️ 體溫' },
+            { value: 'growth', label: '🌱 成長' },
+          ] as { value: 'all' | RecordType; label: string }[]).map(chip => (
+            <button
+              key={chip.value}
+              onClick={() => setFilter(chip.value)}
+              className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
+                filter === chip.value
+                  ? 'bg-indigo-600 text-white shadow-sm'
+                  : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400'
+              }`}
+            >
+              {chip.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="space-y-3 text-left text-slate-800 dark:text-slate-200">
@@ -125,23 +134,56 @@ export const RecordList: React.FC<RecordListProps> = ({
       {detailRecord && (
         <div className="fixed inset-0 z-[150] flex items-center justify-center p-6" onClick={() => setDetailRecord(null)}>
           <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" />
-          <div className="relative bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-2xl max-w-sm w-full space-y-3 text-left" onClick={e => e.stopPropagation()}>
-            <div className="flex justify-between items-center mb-2">
+          <div className="relative bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-2xl max-w-sm w-full space-y-4 text-left" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center">
               <span className="text-sm text-slate-900 dark:text-slate-100 font-semibold">紀錄詳情</span>
               <button onClick={() => setDetailRecord(null)} className="text-slate-400 active:scale-90">✕</button>
             </div>
-            <div className="space-y-1.5 text-xs text-slate-500 dark:text-slate-400">
-              <div><span className="text-slate-400">ID:</span> {detailRecord.id}</div>
-              <div><span className="text-slate-400">類型:</span> {detailRecord.type}{detailRecord.milkType ? ` (${detailRecord.milkType})` : ''}</div>
-              <div><span className="text-slate-400">時間:</span> {detailRecord.time}</div>
-              <div><span className="text-slate-400">Timestamp:</span> {detailRecord.timestamp}</div>
-              {detailRecord.endTimestamp && <div><span className="text-slate-400">EndTimestamp:</span> {detailRecord.endTimestamp}</div>}
-              {detailRecord.amount != null && <div><span className="text-slate-400">Amount:</span> {detailRecord.amount}</div>}
-              {detailRecord.weight != null && <div><span className="text-slate-400">Weight:</span> {detailRecord.weight}</div>}
-              {detailRecord.height != null && <div><span className="text-slate-400">Height:</span> {detailRecord.height}</div>}
-              {detailRecord.note && <div><span className="text-slate-400">Note:</span> {detailRecord.note}</div>}
-              <div><span className="text-slate-400">UpdatedAt:</span> {detailRecord.updatedAt ? new Date(detailRecord.updatedAt).toLocaleString('zh-TW') : 'N/A'}</div>
-              {detailRecord.deviceName && <div><span className="text-slate-400">Device:</span> {detailRecord.deviceName}</div>}
+            <div className="space-y-3">
+              {/* 主要數值 */}
+              <div className="bg-slate-50 dark:bg-slate-700 rounded-xl p-4 text-center">
+                <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+                  {detailRecord.type === 'feeding' && `${detailRecord.amount} ml`}
+                  {detailRecord.type === 'sleep' && `${Math.floor((detailRecord.amount || 0) / 60)}時 ${(detailRecord.amount || 0) % 60}分`}
+                  {detailRecord.type === 'babyfood' && `${detailRecord.label || ''} ${detailRecord.amount}g`}
+                  {detailRecord.type === 'temperature' && `${detailRecord.amount}°C`}
+                  {detailRecord.type === 'growth' && `${detailRecord.weight} kg / ${detailRecord.height} cm`}
+                </div>
+                <div className="text-xs text-slate-400 mt-1">
+                  {detailRecord.type === 'feeding' && (detailRecord.milkType === 'formula' ? '配方奶' : '母奶')}
+                  {detailRecord.type === 'sleep' && '睡眠'}
+                  {detailRecord.type === 'babyfood' && (detailRecord.subType || '副食品')}
+                  {detailRecord.type === 'temperature' && (detailRecord.amount && detailRecord.amount >= 37.5 ? '⚠️ 發燒' : '體溫正常')}
+                  {detailRecord.type === 'growth' && '成長紀錄'}
+                </div>
+              </div>
+              {/* 時間 */}
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-400">時間</span>
+                <span className="text-slate-700 dark:text-slate-200">{detailRecord.time}</span>
+              </div>
+              {detailRecord.type === 'sleep' && detailRecord.endTimestamp && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-400">起床</span>
+                  <span className="text-slate-700 dark:text-slate-200">{new Date(detailRecord.endTimestamp).toLocaleString('zh-TW')}</span>
+                </div>
+              )}
+              {detailRecord.note && (
+                <div className="flex justify-between text-sm gap-4">
+                  <span className="text-slate-400 flex-shrink-0">備註</span>
+                  <span className="text-slate-700 dark:text-slate-200 text-right">{detailRecord.note}</span>
+                </div>
+              )}
+              {detailRecord.deviceName && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-400">裝置</span>
+                  <span className="text-slate-500 dark:text-slate-400 text-xs bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded">{detailRecord.deviceName}</span>
+                </div>
+              )}
+              <div className="flex justify-between text-xs text-slate-300 dark:text-slate-600 pt-1 border-t border-slate-50 dark:border-slate-700">
+                <span>最後修改</span>
+                <span>{detailRecord.updatedAt ? new Date(detailRecord.updatedAt).toLocaleString('zh-TW') : '—'}</span>
+              </div>
             </div>
           </div>
         </div>

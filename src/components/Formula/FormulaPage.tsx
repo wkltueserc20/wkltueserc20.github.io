@@ -187,7 +187,16 @@ export const FormulaPage: React.FC<FormulaPageProps> = ({ records, onAdd, onUpda
         )}
 
         {canRecords.length === 0 && (
-          <p className="text-center text-slate-300 dark:text-slate-600 text-sm py-6">還沒有奶粉記錄</p>
+          <div className="flex flex-col items-center gap-3 py-8">
+            <span className="text-4xl opacity-30">🍼</span>
+            <p className="text-xs text-slate-400 text-center">還沒有奶粉記錄</p>
+            <button
+              onClick={() => { setEditRecord(null); setShowCanForm(true); }}
+              className="text-xs text-indigo-600 bg-indigo-50 dark:bg-indigo-900/30 px-4 py-2 rounded-full font-semibold active:scale-95 transition-all"
+            >
+              + 新增第一罐
+            </button>
+          </div>
         )}
       </section>
 
