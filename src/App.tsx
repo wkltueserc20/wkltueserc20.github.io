@@ -22,7 +22,7 @@ import { ConfirmDialog } from './components/Layout/ConfirmDialog';
 import { QuickRecord } from './components/Home/QuickRecord';
 import { SyncGuide } from './components/Home/SyncGuide';
 import { FeedCountdown } from './components/Home/FeedCountdown';
-import { VaccinePage } from './components/Vaccine/VaccinePage';
+import { RecordsPage } from './components/Records/RecordsPage';
 import type { MilkType } from './types';
 
 const MS_PER_DAY = 86400000;
@@ -440,7 +440,7 @@ function App() {
 
   const isTodaySearch = searchDate === new Date().toLocaleDateString('en-CA');
 
-  const TAB_ORDER: TabType[] = ['home', 'stats', 'vaccine', 'settings'];
+  const TAB_ORDER: TabType[] = ['home', 'stats', 'records', 'settings'];
   const swipeRef = useRef<{ x: number; y: number } | null>(null);
   const handleSwipeStart = (e: React.TouchEvent) => {
     swipeRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
@@ -645,14 +645,33 @@ function App() {
           />
         )}
 
-        {currentTab === 'vaccine' && babyInfo && (
-          <VaccinePage
+        {currentTab === 'records' && babyInfo && (
+          <RecordsPage
             records={records}
             babyInfo={babyInfo}
             onAddVaccine={handleAddVaccine}
-            onMarkDone={handleMarkVaccineDone}
+            onMarkVaccineDone={handleMarkVaccineDone}
             onEditVaccine={handleEditVaccine}
             onDeleteVaccine={handleDeleteRecord}
+            onFormulaAdd={(data) => {
+              const nowTs = Date.now();
+              const newRec = {
+                ...data,
+                id: crypto.randomUUID(),
+                time: new Date(data.timestamp).toLocaleString('zh-TW'),
+                updatedAt: nowTs,
+                deviceName: myDevice,
+              };
+              addRecord(newRec);
+              fullSync([newRec, ...records], setAllRecords);
+            }}
+            onFormulaUpdate={(record) => {
+              updateRecord(record);
+              const updated = records.map(r => r.id === record.id ? record : r);
+              fullSync(updated, setAllRecords);
+              showToast('修改成功 ✅');
+            }}
+            onFormulaDelete={handleDeleteRecord}
           />
         )}
 
@@ -690,7 +709,7 @@ function App() {
           </div>
 
           {[
-            { id: 'vaccine', icon: '💉', label: '疫苗' },
+            { id: 'records', icon: '📒', label: '紀錄' },
             { id: 'settings', icon: '⚙️', label: '設定' },
           ].map((tab) => (
             <button

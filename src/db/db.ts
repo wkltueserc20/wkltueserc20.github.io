@@ -9,6 +9,9 @@ export class BabyTrackerDexie extends Dexie {
     this.version(1).stores({
       records: 'id, type, timestamp' // Primary key is id, index on type and timestamp
     });
+    this.version(2).stores({
+      records: 'id, type, timestamp, subType'
+    });
   }
 }
 
