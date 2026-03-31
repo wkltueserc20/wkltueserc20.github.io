@@ -22,15 +22,15 @@ export const RecordsPage: React.FC<RecordsPageProps> = ({
   onAddVaccine, onMarkVaccineDone, onEditVaccine, onDeleteVaccine,
   onFormulaAdd, onFormulaUpdate, onFormulaDelete,
 }) => {
-  const [subTab, setSubTab] = useState<SubTab>('vaccine');
+  const [subTab, setSubTab] = useState<SubTab>('formula');
 
   return (
     <div className="space-y-5">
       {/* 子標籤 */}
       <div className="flex bg-slate-100 dark:bg-slate-800 rounded-2xl p-1">
         {([
-          { id: 'vaccine', label: '💉 疫苗' },
           { id: 'formula', label: '🍼 奶粉' },
+          { id: 'vaccine', label: '💉 疫苗' },
         ] as { id: SubTab; label: string }[]).map(tab => (
           <button
             key={tab.id}
