@@ -440,23 +440,6 @@ function App() {
 
   const isTodaySearch = searchDate === new Date().toLocaleDateString('en-CA');
 
-  const TAB_ORDER: TabType[] = ['home', 'stats', 'records', 'settings'];
-  const swipeRef = useRef<{ x: number; y: number } | null>(null);
-  const handleSwipeStart = (e: React.TouchEvent) => {
-    swipeRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-  };
-  const handleSwipeEnd = (e: React.TouchEvent) => {
-    if (!swipeRef.current) return;
-    const dx = e.changedTouches[0].clientX - swipeRef.current.x;
-    const dy = e.changedTouches[0].clientY - swipeRef.current.y;
-    swipeRef.current = null;
-    const tag = (document.activeElement as HTMLElement)?.tagName;
-    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
-    if (Math.abs(dx) < 60 || Math.abs(dy) > Math.abs(dx)) return;
-    const idx = TAB_ORDER.indexOf(currentTab);
-    if (dx < 0 && idx < TAB_ORDER.length - 1) setCurrentTab(TAB_ORDER[idx + 1]);
-    if (dx > 0 && idx > 0) setCurrentTab(TAB_ORDER[idx - 1]);
-  };
 
   const [setupName, setSetupName] = useState('');
   const [setupBirthday, setSetupBirthday] = useState('');
@@ -562,7 +545,6 @@ function App() {
         className="max-w-md mx-auto px-6 pt-8 space-y-7"
         onTouchStart={(e) => {
           pullYRef.current = e.touches[0].clientY;
-          handleSwipeStart(e);
         }}
         onTouchEnd={(e) => {
           if (pullYRef.current !== null) {
@@ -571,7 +553,6 @@ function App() {
             if (scrollTop <= 0 && endY - pullYRef.current > 80) handlePullRefresh();
             pullYRef.current = null;
           }
-          handleSwipeEnd(e);
         }}
       >
         {isPulling && (

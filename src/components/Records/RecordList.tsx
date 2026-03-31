@@ -26,7 +26,11 @@ export const RecordList: React.FC<RecordListProps> = ({
   const [detailRecord, setDetailRecord] = useState<Record | null>(null);
   const isToday = searchDate === new Date().toLocaleDateString('en-CA');
   const filteredRecords = records.filter(
-    (r) => !r.isDeleted && isSameDay(getRecordTargetTs(r), searchDate) && (filter === 'all' || r.type === filter)
+    (r) => !r.isDeleted &&
+      r.type !== 'formula_can' &&
+      r.type !== 'formula_price' &&
+      isSameDay(getRecordTargetTs(r), searchDate) &&
+      (filter === 'all' || r.type === filter)
   );
 
   return (
