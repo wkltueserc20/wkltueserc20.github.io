@@ -21,6 +21,7 @@ export const FormulaPage: React.FC<FormulaPageProps> = ({ records, onAdd, onUpda
   const [showPriceForm, setShowPriceForm] = useState(false);
   const [editRecord, setEditRecord] = useState<Record | null>(null);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const [expandedPriceGroups, setExpandedPriceGroups] = useState<Set<string>>(new Set());
 
   // 奶粉使用記錄
   const canRecords = useMemo(() =>
@@ -98,6 +99,14 @@ export const FormulaPage: React.FC<FormulaPageProps> = ({ records, onAdd, onUpda
 
   const toggleGroup = (brand: string) => {
     setExpandedGroups(prev => {
+      const next = new Set(prev);
+      next.has(brand) ? next.delete(brand) : next.add(brand);
+      return next;
+    });
+  };
+
+  const togglePriceGroup = (brand: string) => {
+    setExpandedPriceGroups(prev => {
       const next = new Set(prev);
       next.has(brand) ? next.delete(brand) : next.add(brand);
       return next;
@@ -186,28 +195,44 @@ export const FormulaPage: React.FC<FormulaPageProps> = ({ records, onAdd, onUpda
       <section>
         <h3 className="text-xs text-slate-400 uppercase tracking-widest mb-3">店家價格表</h3>
         {priceByBrand.size > 0 ? (
-          <div className="space-y-3">
-            {Array.from(priceByBrand.entries()).map(([brand, prices]) => (
-              <div key={brand} className="bg-white dark:bg-slate-800 rounded-2xl overflow-hidden shadow-sm border border-slate-100 dark:border-slate-700">
-                <div className="px-4 py-3 border-b border-slate-50 dark:border-slate-700">
-                  <span className="font-semibold text-slate-800 dark:text-slate-100 text-sm">{brand}</span>
-                </div>
-                {prices.map(p => (
-                  <div key={p.id} className="flex justify-between items-center px-4 py-3 border-b border-slate-50 dark:border-slate-700 last:border-0">
-                    <span className="text-sm text-slate-600 dark:text-slate-300">{p.label}</span>
-                    <div className="flex items-center gap-3">
-                      <span className="text-sm font-medium text-indigo-600">${(p.amount || 0).toLocaleString()}</span>
-                      <button
-                        onClick={() => { setEditRecord(p); setShowPriceForm(true); }}
-                        className="text-xs text-slate-400 active:text-indigo-500 transition-colors"
-                      >
-                        ✏️
-                      </button>
+          <div className="space-y-2">
+            {Array.from(priceByBrand.entries()).map(([brand, prices]) => {
+              const expanded = expandedPriceGroups.has(brand);
+              return (
+                <div key={brand} className="bg-white dark:bg-slate-800 rounded-2xl overflow-hidden shadow-sm border border-slate-100 dark:border-slate-700">
+                  <button
+                    className="w-full flex justify-between items-center px-4 py-3 active:bg-slate-50 dark:active:bg-slate-700 transition-colors"
+                    onClick={() => togglePriceGroup(brand)}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-slate-700 dark:text-slate-200 text-sm">{brand}</span>
+                      <span className="bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 text-[11px] px-2 py-0.5 rounded-full">
+                        {prices.length} 間
+                      </span>
                     </div>
-                  </div>
-                ))}
-              </div>
-            ))}
+                    <span className="text-slate-300 dark:text-slate-600 text-sm">{expanded ? '▾' : '▸'}</span>
+                  </button>
+                  {expanded && (
+                    <div className="border-t border-slate-50 dark:border-slate-700">
+                      {prices.map(p => (
+                        <div key={p.id} className="flex justify-between items-center px-4 py-3 border-b border-slate-50 dark:border-slate-700 last:border-0">
+                          <span className="text-sm text-slate-600 dark:text-slate-300">{p.label}</span>
+                          <div className="flex items-center gap-3">
+                            <span className="text-sm font-medium text-indigo-600">${(p.amount || 0).toLocaleString()}</span>
+                            <button
+                              onClick={() => { setEditRecord(p); setShowPriceForm(true); }}
+                              className="text-xs text-slate-400 active:text-indigo-500 transition-colors"
+                            >
+                              ✏️
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         ) : (
           <p className="text-center text-slate-300 dark:text-slate-600 text-sm py-4">還沒有價格記錄</p>
