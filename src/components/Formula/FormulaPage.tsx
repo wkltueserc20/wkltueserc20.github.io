@@ -245,7 +245,7 @@ export const FormulaPage: React.FC<FormulaPageProps> = ({ records, onAdd, onUpda
             if (editRecord) {
               onUpdate({ ...editRecord, ...data, updatedAt: Date.now() });
             } else {
-              onAdd({ ...data, type: 'formula_can' });
+              onAdd({ ...data, type: 'formula_can' } as Omit<Record, 'id' | 'time' | 'updatedAt'>);
             }
             setShowCanForm(false);
             setEditRecord(null);
@@ -268,7 +268,7 @@ export const FormulaPage: React.FC<FormulaPageProps> = ({ records, onAdd, onUpda
             if (editRecord) {
               onUpdate({ ...editRecord, ...data, updatedAt: Date.now() });
             } else {
-              onAdd({ ...data, type: 'formula_price' });
+              onAdd({ ...data, type: 'formula_price' } as Omit<Record, 'id' | 'time' | 'updatedAt'>);
             }
             setShowPriceForm(false);
             setEditRecord(null);
@@ -312,9 +312,7 @@ const CanForm: React.FC<CanFormProps> = ({
   initial, brandOptions, getStoresForBrand, getPriceForStoreAndBrand,
   onSave, onDelete, onCancel,
 }) => {
-  const [brand, setBrand] = useState(initial?.subType || '');
   const [brandInput, setBrandInput] = useState(initial?.subType || '');
-  const [store, setStore] = useState(initial?.label || '');
   const [storeInput, setStoreInput] = useState(initial?.label || '');
   const [amount, setAmount] = useState(initial?.amount?.toString() || '');
   const [openDate, setOpenDate] = useState(
@@ -329,12 +327,10 @@ const CanForm: React.FC<CanFormProps> = ({
 
   const handleBrandChange = (val: string) => {
     setBrandInput(val);
-    setBrand(val);
   };
 
   const handleStoreChange = (val: string) => {
     setStoreInput(val);
-    setStore(val);
     const price = getPriceForStoreAndBrand(brandInput, val);
     if (price !== undefined) setAmount(price.toString());
   };
