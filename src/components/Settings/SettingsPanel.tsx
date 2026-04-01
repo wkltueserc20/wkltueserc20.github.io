@@ -160,7 +160,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
           onMouseDown={() => { longPressTimer.current = setTimeout(() => setShowDebug(true), 1500); }}
           onMouseUp={() => { if (longPressTimer.current) clearTimeout(longPressTimer.current); }}
           onMouseLeave={() => { if (longPressTimer.current) clearTimeout(longPressTimer.current); }}
-        >v9.10 (20260331)</p>
+        >v9.11 (20260401)</p>
       </div>
 
       {showDebug && <DebugConsole babyInfo={babyInfo} onClose={() => setShowDebug(false)} />}

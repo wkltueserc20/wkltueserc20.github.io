@@ -63,6 +63,21 @@ export const StatsTab: React.FC<StatsTabProps> = ({ records }) => {
   const barSize = statsRange > 14 ? 12 : 28;
   const tickFontSize = statsRange > 14 ? 8 : 10;
 
+  const formulaSpending = useMemo(() => {
+    const cans = records.filter(r => r.type === 'formula_can' && !r.isDeleted && r.amount);
+    const total = cans.reduce((s, r) => s + (r.amount || 0), 0);
+    const byBrand = new Map<string, { total: number; count: number }>();
+    cans.forEach(r => {
+      const brand = r.subType || '未命名';
+      const cur = byBrand.get(brand) || { total: 0, count: 0 };
+      byBrand.set(brand, { total: cur.total + (r.amount || 0), count: cur.count + 1 });
+    });
+    const brands = Array.from(byBrand.entries())
+      .map(([name, v]) => ({ name, ...v }))
+      .sort((a, b) => b.total - a.total);
+    return { total, brands, canCount: cans.length };
+  }, [records]);
+
   return (
     <div className="space-y-7 pb-16 animate-in fade-in duration-700 text-slate-800">
       <div className="bg-white dark:bg-slate-800 p-2 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 flex gap-1" role="tablist" aria-label="統計時間區間">
@@ -116,6 +131,43 @@ export const StatsTab: React.FC<StatsTabProps> = ({ records }) => {
           </ResponsiveContainer>
         </div>
       </div>
+
+      {formulaSpending.canCount > 0 && (
+        <div className="bg-white dark:bg-slate-800 p-7 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 text-left">
+          <h2 className="text-[11px] text-slate-900 dark:text-slate-100 mb-5 uppercase tracking-widest flex items-center gap-2">
+            <div className="w-2 h-5 bg-amber-400 rounded-full" /> 奶粉花費統計
+          </h2>
+          <div className="flex items-baseline justify-between mb-5">
+            <div>
+              <span className="text-3xl font-bold text-slate-900 dark:text-slate-100">${formulaSpending.total.toLocaleString()}</span>
+              <span className="text-xs text-slate-400 ml-2">累積總花費</span>
+            </div>
+            <div className="text-right">
+              <div className="text-sm font-semibold text-amber-500">{formulaSpending.canCount} 罐</div>
+              <div className="text-xs text-slate-400">平均 ${formulaSpending.canCount > 0 ? Math.round(formulaSpending.total / formulaSpending.canCount).toLocaleString() : 0} /罐</div>
+            </div>
+          </div>
+          <div className="space-y-3">
+            {formulaSpending.brands.map(brand => (
+              <div key={brand.name}>
+                <div className="flex justify-between items-center mb-1">
+                  <span className="text-xs font-semibold text-slate-700 dark:text-slate-200">{brand.name}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-slate-400">{brand.count} 罐</span>
+                    <span className="text-xs font-semibold text-amber-600">${brand.total.toLocaleString()}</span>
+                  </div>
+                </div>
+                <div className="h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-amber-400 rounded-full"
+                    style={{ width: `${Math.round((brand.total / formulaSpending.total) * 100)}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="bg-white dark:bg-slate-800 p-7 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 text-left">
         <h2 className="text-[11px] text-slate-900 mb-8 uppercase tracking-widest flex items-center gap-2">

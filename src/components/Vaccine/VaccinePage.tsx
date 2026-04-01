@@ -8,7 +8,7 @@ interface VaccinePageProps {
   babyInfo: BabyInfo;
   onAddVaccine: (vaccine: Omit<Record, 'id' | 'time' | 'updatedAt'>) => void;
   onMarkDone: (record: Record, actualDate: number) => void;
-  onEditVaccine: (record: Record, newEndTimestamp: number, newNote: string, newSubType: string, newLabel: string) => void;
+  onEditVaccine: (record: Record, newEndTimestamp: number, newNote: string, newSubType: string, newLabel: string, newAmount?: number) => void;
   onDeleteVaccine: (id: string) => void;
 }
 
@@ -25,6 +25,8 @@ export const VaccinePage: React.FC<VaccinePageProps> = ({
   const [editNote, setEditNote] = useState('');
   const [editSubType, setEditSubType] = useState('');
   const [editLabel, setEditLabel] = useState('');
+  const [editAmount, setEditAmount] = useState('');
+  const [customAmount, setCustomAmount] = useState('');
   const [confirmDoneRecord, setConfirmDoneRecord] = useState<Record | null>(null);
   const [confirmDoneDate, setConfirmDoneDate] = useState('');
 
@@ -67,9 +69,11 @@ export const VaccinePage: React.FC<VaccinePageProps> = ({
       subType: customName.trim(),
       label: customDose.trim() || '第1劑',
       timestamp: ts,
+      amount: customAmount !== '' ? Number(customAmount) : undefined,
     });
     setCustomName('');
     setCustomDose('');
+    setCustomAmount('');
     setShowAdd(false);
   };
 
@@ -79,13 +83,15 @@ export const VaccinePage: React.FC<VaccinePageProps> = ({
     setEditNote(r.note || '');
     setEditSubType(r.subType || '');
     setEditLabel(r.label || '');
+    setEditAmount(r.amount != null ? String(r.amount) : '');
   };
 
   const handleSaveEdit = () => {
     if (!editRecord) return;
     const ts = new Date(editDate).getTime();
     if (isNaN(ts)) return;
-    onEditVaccine(editRecord, ts, editNote, editSubType, editLabel);
+    const amt = editAmount !== '' ? Number(editAmount) : undefined;
+    onEditVaccine(editRecord, ts, editNote, editSubType, editLabel, amt);
     setEditRecord(null);
   };
 
@@ -169,6 +175,11 @@ export const VaccinePage: React.FC<VaccinePageProps> = ({
             type="datetime-local" value={customDate} onChange={e => setCustomDate(e.target.value)}
             className="w-full min-w-0 p-3.5 bg-slate-50 dark:bg-slate-700 dark:text-slate-200 rounded-xl outline-none text-sm border border-slate-100 dark:border-slate-600 box-border"
           />
+          <input
+            type="number" value={customAmount} onChange={e => setCustomAmount(e.target.value)}
+            placeholder="費用（選填，例：500）"
+            className="w-full min-w-0 p-3.5 bg-slate-50 dark:bg-slate-700 dark:text-slate-200 rounded-xl outline-none text-sm border border-slate-100 dark:border-slate-600 box-border"
+          />
           <button onClick={handleAddCustom} className="w-full py-3 bg-indigo-600 text-white rounded-xl text-xs uppercase active:scale-95 transition-all font-semibold">
             新增疫苗
           </button>
@@ -208,7 +219,10 @@ export const VaccinePage: React.FC<VaccinePageProps> = ({
                         <div className="text-lg flex-shrink-0">✅</div>
                         <div className="flex-1 min-w-0">
                           <div className="text-sm font-semibold text-slate-800 dark:text-slate-200">{r.subType} {r.label}</div>
-                          {r.note && <div className="text-xs text-slate-400 italic mt-0.5">{r.note}</div>}
+                          <div className="flex items-center gap-2 flex-wrap mt-0.5">
+                            {r.amount != null && <span className="text-xs text-amber-600 font-semibold">💰 ${r.amount.toLocaleString()}</span>}
+                            {r.note && <span className="text-xs text-slate-400 italic">{r.note}</span>}
+                          </div>
                         </div>
                         <div className="flex gap-1.5 flex-shrink-0">
                           <button
@@ -357,6 +371,16 @@ export const VaccinePage: React.FC<VaccinePageProps> = ({
                   type="datetime-local"
                   value={editDate}
                   onChange={e => setEditDate(e.target.value)}
+                  className="w-full p-3.5 bg-slate-50 dark:bg-slate-700 dark:text-slate-200 rounded-xl outline-none text-sm border border-slate-100 dark:border-slate-600"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-slate-400 uppercase tracking-widest font-semibold block mb-1.5">費用</label>
+                <input
+                  type="number"
+                  value={editAmount}
+                  onChange={e => setEditAmount(e.target.value)}
+                  placeholder="選填，例：500"
                   className="w-full p-3.5 bg-slate-50 dark:bg-slate-700 dark:text-slate-200 rounded-xl outline-none text-sm border border-slate-100 dark:border-slate-600"
                 />
               </div>

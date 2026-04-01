@@ -37,7 +37,8 @@ export const RecordList: React.FC<RecordListProps> = ({
     <div className="space-y-4">
       <div className="space-y-2 px-1">
         <h3 className="text-xs text-slate-400 uppercase tracking-widest font-semibold">紀錄清單</h3>
-        <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+        <div className="relative">
+        <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar pr-6">
           {([
             { value: 'all', label: '全部' },
             { value: 'feeding', label: '🍼 餵奶' },
@@ -58,6 +59,8 @@ export const RecordList: React.FC<RecordListProps> = ({
               {chip.label}
             </button>
           ))}
+        </div>
+        <div className="absolute right-0 top-0 bottom-1 w-8 bg-gradient-to-l from-[#F8FAFC] dark:from-slate-900 to-transparent pointer-events-none" />
         </div>
       </div>
 
@@ -112,11 +115,6 @@ export const RecordList: React.FC<RecordListProps> = ({
                     )}
                   </div>
                 </div>
-                <div className="text-slate-200 dark:text-slate-600 ml-3">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path d="M9 5l7 7-7 7" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </div>
               </div>
             </SwipeableRecordItem>
           );
@@ -126,8 +124,13 @@ export const RecordList: React.FC<RecordListProps> = ({
       {filteredRecords.length === 0 && (
         <div className="flex flex-col items-center justify-center py-16 gap-3">
           <span className="text-5xl opacity-30">📝</span>
-          <p className="text-xs text-slate-300 uppercase tracking-widest">還沒有紀錄</p>
-          <p className="text-xs text-slate-300">點下方 ＋ 開始記錄</p>
+          <p className="text-xs text-slate-300 uppercase tracking-widest">
+            {isToday ? '今天還沒有紀錄' : (() => {
+              const d = new Date(searchDate + 'T00:00:00');
+              return `${d.getMonth() + 1}月${d.getDate()}日沒有紀錄`;
+            })()}
+          </p>
+          {isToday && <p className="text-xs text-slate-300">點下方 ＋ 開始記錄</p>}
         </div>
       )}
 

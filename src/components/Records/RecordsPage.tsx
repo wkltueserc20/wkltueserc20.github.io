@@ -8,7 +8,7 @@ interface RecordsPageProps {
   babyInfo: BabyInfo;
   onAddVaccine: (data: Omit<Record, 'id' | 'time' | 'updatedAt'>) => void;
   onMarkVaccineDone: (record: Record, actualDate: number) => void;
-  onEditVaccine: (record: Record, newEndTimestamp: number, newNote: string, newSubType: string, newLabel: string) => void;
+  onEditVaccine: (record: Record, newEndTimestamp: number, newNote: string, newSubType: string, newLabel: string, newAmount?: number) => void;
   onDeleteVaccine: (id: string) => void;
   onFormulaAdd: (data: Omit<Record, 'id' | 'time' | 'updatedAt'>) => void;
   onFormulaUpdate: (record: Record) => void;
