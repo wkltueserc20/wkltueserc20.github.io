@@ -580,7 +580,7 @@ function App() {
 
             <QuickRecord records={records} onQuickFeed={handleQuickFeed} />
 
-            <FeedCountdown records={records} feedIntervalMs={(babyInfo.feedIntervalHours || 4) * 3600000} />
+            <FeedCountdown records={records} feedIntervalMs={(babyInfo.feedIntervalHours || 4) * 3600000} quietHourStart={babyInfo.quietHourStart} quietHourEnd={babyInfo.quietHourEnd} />
 
             <SummaryCards
               searchDate={searchDate}

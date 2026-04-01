@@ -18,7 +18,7 @@ export const VaccinePage: React.FC<VaccinePageProps> = ({
   const [showAdd, setShowAdd] = useState(false);
   const [customName, setCustomName] = useState('');
   const [customDose, setCustomDose] = useState('');
-  const [customDate, setCustomDate] = useState(formatLocalValue(new Date()));
+  const [customDate, setCustomDate] = useState(new Date().toLocaleDateString('en-CA'));
   const [showScheduleImport, setShowScheduleImport] = useState(false);
   const [editRecord, setEditRecord] = useState<Record | null>(null);
   const [editDate, setEditDate] = useState('');
@@ -172,7 +172,7 @@ export const VaccinePage: React.FC<VaccinePageProps> = ({
             className="w-full min-w-0 p-3.5 bg-slate-50 dark:bg-slate-700 dark:text-slate-200 rounded-xl outline-none text-sm border border-slate-100 dark:border-slate-600 box-border"
           />
           <input
-            type="datetime-local" value={customDate} onChange={e => setCustomDate(e.target.value)}
+            type="date" value={customDate} onChange={e => setCustomDate(e.target.value)}
             className="w-full min-w-0 p-3.5 bg-slate-50 dark:bg-slate-700 dark:text-slate-200 rounded-xl outline-none text-sm border border-slate-100 dark:border-slate-600 box-border"
           />
           <input

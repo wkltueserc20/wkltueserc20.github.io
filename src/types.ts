@@ -27,5 +27,7 @@ export interface BabyInfo {
   syncUrl?: string;
   syncSecret?: string;
   feedIntervalHours?: number;
+  quietHourStart?: number;
+  quietHourEnd?: number;
   deviceName?: string;
 }

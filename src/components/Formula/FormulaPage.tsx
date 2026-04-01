@@ -142,6 +142,7 @@ export const FormulaPage: React.FC<FormulaPageProps> = ({ records, onAdd, onUpda
                     key={can.id}
                     can={can}
                     onEdit={() => { setEditRecord(can); setShowCanForm(true); }}
+                    onMarkDone={() => onUpdate({ ...can, endTimestamp: Date.now(), updatedAt: Date.now() })}
                   />
                 ))}
               </div>
@@ -316,7 +317,7 @@ export const FormulaPage: React.FC<FormulaPageProps> = ({ records, onAdd, onUpda
 };
 
 // ── CanRow ──────────────────────────────────────────────────────────────────
-const CanRow: React.FC<{ can: Record; onEdit: () => void }> = ({ can, onEdit }) => (
+const CanRow: React.FC<{ can: Record; onEdit: () => void; onMarkDone?: () => void }> = ({ can, onEdit, onMarkDone }) => (
   <div className="flex justify-between items-center px-4 py-3 border-b border-slate-50 dark:border-slate-700 last:border-0">
     <div className="flex flex-col gap-0.5">
       <span className="text-xs text-slate-500 dark:text-slate-400">
@@ -327,7 +328,17 @@ const CanRow: React.FC<{ can: Record; onEdit: () => void }> = ({ can, onEdit }) 
         {formatDate(can.timestamp)} → {can.endTimestamp ? formatDate(can.endTimestamp) : <span className="text-emerald-500">使用中</span>}
       </span>
     </div>
-    <button onClick={onEdit} className="text-slate-300 active:text-indigo-500 transition-colors text-sm px-2">✏️</button>
+    <div className="flex items-center gap-2">
+      {onMarkDone && (
+        <button
+          onClick={onMarkDone}
+          className="text-xs text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 px-2.5 py-1 rounded-lg font-semibold active:scale-95 transition-all"
+        >
+          用完了
+        </button>
+      )}
+      <button onClick={onEdit} className="text-slate-300 active:text-indigo-500 transition-colors text-sm px-2">✏️</button>
+    </div>
   </div>
 );
 

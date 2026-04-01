@@ -9,16 +9,19 @@ interface FeedCountdownProps {
   records: Record[];
   feedIntervalMs: number;
   staleMs?: number;
+  quietHourStart?: number;
+  quietHourEnd?: number;
 }
 
 export const FeedCountdown: React.FC<FeedCountdownProps> = ({
   records, feedIntervalMs, staleMs = 12 * MS_PER_HOUR,
+  quietHourStart, quietHourEnd,
 }) => {
   const [now, setNow] = useState(Date.now());
 
   useEffect(() => {
     let timer: ReturnType<typeof setInterval>;
-    const start = () => { timer = setInterval(() => setNow(Date.now()), 1000); };
+    const start = () => { timer = setInterval(() => setNow(Date.now()), 60000); };
     const stop = () => clearInterval(timer);
     const onVis = () => (document.visibilityState === 'visible' ? start() : stop());
     start();
@@ -30,7 +33,10 @@ export const FeedCountdown: React.FC<FeedCountdownProps> = ({
     const last = records.find((r) => !r.isDeleted && r.type === 'feeding');
     if (!last) return null;
     const hr = new Date(last.timestamp).getHours();
-    if (hr === 23 || hr === 0) return { skip: true as const };
+    const qs = quietHourStart ?? 23;
+    const qe = quietHourEnd ?? 1;
+    const isQuiet = qs > qe ? (hr >= qs || hr < qe) : (hr >= qs && hr < qe);
+    if (isQuiet) return { skip: true as const };
     const target = last.timestamp + feedIntervalMs;
     const diff = target - now;
     if (diff <= -staleMs) return null;

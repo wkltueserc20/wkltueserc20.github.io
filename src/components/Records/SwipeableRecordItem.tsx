@@ -58,7 +58,7 @@ export const SwipeableRecordItem: React.FC<SwipeableRecordItemProps> = ({ childr
           className="w-full h-full text-white flex flex-col items-center justify-center gap-1 active:opacity-70"
         >
           <span className="text-xl">🗑️</span>
-          <span className="text-[9px] uppercase">Delete</span>
+          <span className="text-[9px]">刪除</span>
         </button>
       </motion.div>
 

@@ -99,7 +99,7 @@ export const StatsTab: React.FC<StatsTabProps> = ({ records }) => {
       </div>
 
       <div className="bg-white dark:bg-slate-800 p-7 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700">
-        <h2 className="text-[11px] text-slate-900 mb-8 uppercase tracking-widest flex items-center gap-2 text-left">
+        <h2 className="text-[11px] text-slate-900 dark:text-slate-100 mb-8 uppercase tracking-widest flex items-center gap-2 text-left">
           <div className="w-2 h-5 bg-indigo-500 rounded-full" /> 每日奶量 (ml)
         </h2>
         <div className="h-60">
@@ -116,7 +116,7 @@ export const StatsTab: React.FC<StatsTabProps> = ({ records }) => {
       </div>
 
       <div className="bg-white dark:bg-slate-800 p-7 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700">
-        <h2 className="text-[11px] text-slate-900 mb-8 uppercase tracking-widest flex items-center gap-2 text-left">
+        <h2 className="text-[11px] text-slate-900 dark:text-slate-100 mb-8 uppercase tracking-widest flex items-center gap-2 text-left">
           <div className="w-2 h-5 bg-purple-500 rounded-full" /> 每日睡眠 (hrs)
         </h2>
         <div className="h-60">
@@ -170,7 +170,7 @@ export const StatsTab: React.FC<StatsTabProps> = ({ records }) => {
       )}
 
       <div className="bg-white dark:bg-slate-800 p-7 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 text-left">
-        <h2 className="text-[11px] text-slate-900 mb-8 uppercase tracking-widest flex items-center gap-2">
+        <h2 className="text-[11px] text-slate-900 dark:text-slate-100 mb-8 uppercase tracking-widest flex items-center gap-2">
           <div className="w-2 h-5 bg-emerald-500 rounded-full" /> 成長曲線紀錄
         </h2>
         {growthChartData.length > 0 ? (

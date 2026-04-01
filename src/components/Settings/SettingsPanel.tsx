@@ -89,14 +89,38 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         <h3 className="text-xs text-slate-400 uppercase tracking-widest px-1 font-semibold">偏好設定</h3>
         <div className="flex items-center justify-between px-1">
           <span className="text-sm text-slate-600 dark:text-slate-300">餵奶間隔</span>
-          <div className="flex items-center gap-2">
-            {[2, 3, 4, 5].map(h => (
+          <div className="flex items-center flex-wrap gap-1.5">
+            {[2, 2.5, 3, 3.5, 4, 5].map(h => (
               <button key={h} onClick={() => setBabyInfo({ ...babyInfo, feedIntervalHours: h })}
-                className={`px-3 py-1.5 rounded-lg text-xs transition-all font-semibold ${
+                className={`px-2.5 py-1.5 rounded-lg text-xs transition-all font-semibold ${
                   (babyInfo.feedIntervalHours || 4) === h ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-50 dark:bg-slate-700 text-slate-400'
                 }`}
               >{h}hr</button>
             ))}
+          </div>
+        </div>
+        <div className="flex items-center justify-between px-1">
+          <span className="text-sm text-slate-600 dark:text-slate-300">深夜靜音</span>
+          <div className="flex items-center gap-2 text-xs text-slate-500">
+            <select
+              value={babyInfo.quietHourStart ?? 23}
+              onChange={e => setBabyInfo({ ...babyInfo, quietHourStart: Number(e.target.value) })}
+              className="bg-slate-50 dark:bg-slate-700 dark:text-slate-200 rounded-lg px-2 py-1 text-xs outline-none border border-slate-100 dark:border-slate-600"
+            >
+              {Array.from({ length: 24 }, (_, i) => (
+                <option key={i} value={i}>{String(i).padStart(2, '0')}:00</option>
+              ))}
+            </select>
+            <span className="text-slate-400">到</span>
+            <select
+              value={babyInfo.quietHourEnd ?? 1}
+              onChange={e => setBabyInfo({ ...babyInfo, quietHourEnd: Number(e.target.value) })}
+              className="bg-slate-50 dark:bg-slate-700 dark:text-slate-200 rounded-lg px-2 py-1 text-xs outline-none border border-slate-100 dark:border-slate-600"
+            >
+              {Array.from({ length: 24 }, (_, i) => (
+                <option key={i} value={i}>{String(i).padStart(2, '0')}:00</option>
+              ))}
+            </select>
           </div>
         </div>
         <input type="text" value={babyInfo.deviceName || ''} onChange={(e) => setBabyInfo({ ...babyInfo, deviceName: e.target.value })} placeholder="裝置名稱（例：爸爸的手機）" className={inputCls} />
@@ -160,7 +184,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
           onMouseDown={() => { longPressTimer.current = setTimeout(() => setShowDebug(true), 1500); }}
           onMouseUp={() => { if (longPressTimer.current) clearTimeout(longPressTimer.current); }}
           onMouseLeave={() => { if (longPressTimer.current) clearTimeout(longPressTimer.current); }}
-        >v9.11 (20260401)</p>
+        >v9.12 (20260401)</p>
       </div>
 
       {showDebug && <DebugConsole babyInfo={babyInfo} onClose={() => setShowDebug(false)} />}
