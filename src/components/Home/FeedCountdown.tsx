@@ -21,7 +21,7 @@ export const FeedCountdown: React.FC<FeedCountdownProps> = ({
 
   useEffect(() => {
     let timer: ReturnType<typeof setInterval>;
-    const start = () => { timer = setInterval(() => setNow(Date.now()), 60000); };
+    const start = () => { timer = setInterval(() => setNow(Date.now()), 1000); };
     const stop = () => clearInterval(timer);
     const onVis = () => (document.visibilityState === 'visible' ? start() : stop());
     start();
