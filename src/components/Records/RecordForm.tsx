@@ -10,10 +10,11 @@ interface RecordFormProps {
   activeSleep: Record | null;
   onStartSleep: (time: string) => void;
   onFinishSleep: () => void;
+  solidFoodLabels: string[];
 }
 
 export const RecordForm: React.FC<RecordFormProps> = ({
-  isEditing, records, onSave, onCancel, activeSleep, onStartSleep, onFinishSleep,
+  isEditing, records, onSave, onCancel, activeSleep, onStartSleep, onFinishSleep, solidFoodLabels,
 }) => {
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
@@ -227,7 +228,21 @@ export const RecordForm: React.FC<RecordFormProps> = ({
                   <input type="text" value={foodCategory === '其他' ? '' : foodCategory} onChange={e => setFoodCategory(e.target.value || '其他')} placeholder="自訂類別..." className={`${inputCls} mt-2`} />
                 )}
               </div>
-              <input type="text" value={foodName} onChange={e => setFoodName(e.target.value)} placeholder="食物名稱（例：紅蘿蔔泥）" className={inputCls} />
+              <input
+                type="text"
+                list="food-name-list"
+                value={foodName}
+                onChange={e => setFoodName(e.target.value)}
+                placeholder="食物名稱（例：紅蘿蔔泥）"
+                className={inputCls}
+              />
+              {solidFoodLabels.length > 0 && (
+                <datalist id="food-name-list">
+                  {solidFoodLabels.map(name => (
+                    <option key={name} value={name} />
+                  ))}
+                </datalist>
+              )}
               <div className="flex items-center justify-between bg-slate-50 dark:bg-slate-700 p-4 rounded-2xl border border-slate-100 dark:border-slate-600">
                 <button type="button" onClick={() => setFoodGrams(Math.max(0, foodGrams - 5))} className="w-12 h-12 bg-white dark:bg-slate-600 rounded-xl shadow text-xl text-emerald-600 dark:text-emerald-400 active:scale-90">-</button>
                 <div className="text-center">

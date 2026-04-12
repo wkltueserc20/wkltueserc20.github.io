@@ -134,6 +134,10 @@ function App() {
       ? Math.max(...tempRecords.map(r => r.amount || 0))
       : null;
 
+    const dailySolidFoodGrams = dayRecords
+      .filter(r => r.type === 'babyfood')
+      .reduce((acc, r) => acc + (r.amount || 0), 0);
+
     return {
       milkTotal,
       sleepH: Math.floor(sleepMins / 60),
@@ -143,12 +147,25 @@ function App() {
       daysSinceGrowth,
       maxTemp,
       tempCount: tempRecords.length,
+      dailySolidFoodGrams,
       yesterday: {
         milkTotal: yMilkTotal,
         sleepMins: ySleepMins
       }
     };
   }, [records, searchDate]);
+
+  const solidFoodLabels = useMemo(() => {
+    const seen = new Set<string>();
+    return records
+      .filter(r => !r.isDeleted && r.type === 'babyfood' && r.label)
+      .sort((a, b) => b.timestamp - a.timestamp)
+      .reduce<string[]>((acc, r) => {
+        const name = r.label!;
+        if (!seen.has(name)) { seen.add(name); acc.push(name); }
+        return acc;
+      }, []);
+  }, [records]);
 
   // --- Actions ---
   const myDevice = babyInfo?.deviceName || '';
@@ -587,6 +604,7 @@ function App() {
               setSearchDate={setSearchDate}
               isTodaySearch={isTodaySearch}
               stats={stats}
+              dailySolidFoodGrams={stats.dailySolidFoodGrams}
             />
 
             <RecordList
@@ -721,6 +739,7 @@ function App() {
           activeSleep={activeSleep}
           onStartSleep={handleStartSleep}
           onFinishSleep={handleFinishSleep}
+          solidFoodLabels={solidFoodLabels}
         />
       </BottomSheet>
 

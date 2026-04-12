@@ -19,10 +19,11 @@ interface SummaryCardsProps {
       sleepMins: number;
     };
   };
+  dailySolidFoodGrams?: number;
 }
 
 export const SummaryCards: React.FC<SummaryCardsProps> = ({
-  searchDate, setSearchDate, isTodaySearch, stats,
+  searchDate, setSearchDate, isTodaySearch, stats, dailySolidFoodGrams,
 }) => {
   const [showDetail, setShowDetail] = useState(false);
   const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -125,6 +126,19 @@ export const SummaryCards: React.FC<SummaryCardsProps> = ({
             </>
           )}
 
+          {dailySolidFoodGrams !== undefined && dailySolidFoodGrams > 0 && (
+            <>
+              <div className="w-px h-8 bg-slate-100 dark:bg-slate-700" />
+              <div className="flex flex-col items-center gap-0.5 min-w-[52px]">
+                <span className="text-xl">🥦</span>
+                <span className="text-sm font-bold text-green-600 dark:text-green-400 leading-none">
+                  {dailySolidFoodGrams}
+                </span>
+                <span className="text-[9px] text-slate-400 uppercase tracking-wide">g</span>
+              </div>
+            </>
+          )}
+
           {stats.latestGrowth && (
             <>
               <div className="w-px h-8 bg-slate-100 dark:bg-slate-700" />
@@ -203,6 +217,18 @@ export const SummaryCards: React.FC<SummaryCardsProps> = ({
                     最高 {stats.maxTemp.toFixed(1)}°C{isFever ? ' ⚠️' : ''}
                   </div>
                   <div className="text-xs text-slate-400">共量測 {stats.tempCount} 次</div>
+                </div>
+              </div>
+            )}
+
+            {dailySolidFoodGrams !== undefined && dailySolidFoodGrams > 0 && (
+              <div className="flex justify-between items-center py-3 border-b border-slate-50 dark:border-slate-700">
+                <div className="flex items-center gap-2">
+                  <span>🥦</span>
+                  <span className="text-sm text-slate-600 dark:text-slate-300">副食品</span>
+                </div>
+                <div className="text-right">
+                  <div className="text-sm font-bold text-green-600 dark:text-green-400">總計 {dailySolidFoodGrams} g</div>
                 </div>
               </div>
             )}
