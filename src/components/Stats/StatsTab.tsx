@@ -47,6 +47,25 @@ export const StatsTab: React.FC<StatsTabProps> = ({ records }) => {
     return data;
   }, [records, statsRange]);
 
+  const solidFoodChartData = useMemo(() => {
+    const data = [];
+    for (let i = statsRange - 1; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const dateStr = d.toLocaleDateString('en-CA');
+      const grams = records
+        .filter((r) => !r.isDeleted && r.type === 'babyfood' && isSameDay(r.timestamp, dateStr))
+        .reduce((s, r) => s + (r.amount || 0), 0);
+      data.push({
+        name: d.toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' }),
+        grams,
+      });
+    }
+    return data;
+  }, [records, statsRange]);
+
+  const hasSolidFood = solidFoodChartData.some(d => d.grams > 0);
+
   const growthChartData = useMemo(
     () =>
       records
@@ -131,6 +150,25 @@ export const StatsTab: React.FC<StatsTabProps> = ({ records }) => {
           </ResponsiveContainer>
         </div>
       </div>
+
+      {hasSolidFood && (
+        <div className="bg-white dark:bg-slate-800 p-7 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700">
+          <h2 className="text-[11px] text-slate-900 dark:text-slate-100 mb-8 uppercase tracking-widest flex items-center gap-2 text-left">
+            <div className="w-2 h-5 bg-green-500 rounded-full" /> 每日副食品 (g)
+          </h2>
+          <div className="h-60">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={solidFoodChartData}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: tickFontSize, fill: '#94a3b8', fontWeight: 700 }} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 700 }} />
+                <Tooltip cursor={{ fill: '#F8FAFC', radius: 12 }} />
+                <Bar dataKey="grams" fill="#22c55e" radius={[8, 8, 8, 8]} barSize={barSize} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
 
       {formulaSpending.canCount > 0 && (
         <div className="bg-white dark:bg-slate-800 p-7 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 text-left">
