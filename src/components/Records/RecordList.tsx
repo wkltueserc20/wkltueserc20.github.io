@@ -46,6 +46,7 @@ export const RecordList: React.FC<RecordListProps> = ({
             { value: 'babyfood', label: '🥦 副食品' },
             { value: 'temperature', label: '🌡️ 體溫' },
             { value: 'growth', label: '🌱 成長' },
+            { value: 'medication', label: '💊 用藥' },
           ] as { value: 'all' | RecordType; label: string }[]).map(chip => (
             <button
               key={chip.value}
@@ -81,12 +82,14 @@ export const RecordList: React.FC<RecordListProps> = ({
                     : record.type === 'sleep' ? 'bg-purple-50 dark:bg-purple-900/30 text-purple-500'
                     : record.type === 'babyfood' ? 'bg-green-50 dark:bg-green-900/30 text-green-500'
                     : record.type === 'temperature' ? 'bg-orange-50 dark:bg-orange-900/30 text-orange-500'
+                    : record.type === 'medication' ? 'bg-rose-50 dark:bg-rose-900/30 text-rose-500'
                     : 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600'
                   }`}>
                     {record.type === 'feeding' ? (record.milkType === 'formula' ? '🍼' : '🤱')
                      : record.type === 'sleep' ? '💤'
                      : record.type === 'babyfood' ? '🥦'
                      : record.type === 'temperature' ? '🌡️'
+                     : record.type === 'medication' ? '💊'
                      : '🌱'}
                   </div>
                   <div>
@@ -99,6 +102,8 @@ export const RecordList: React.FC<RecordListProps> = ({
                         ? `${record.label || '副食品'} ${record.amount}g`
                         : record.type === 'temperature'
                         ? <span className={record.amount && record.amount >= 37.5 ? 'text-rose-600' : ''}>{record.amount}°C{record.amount && record.amount >= 37.5 ? ' ⚠️' : ''}</span>
+                        : record.type === 'medication'
+                        ? `${record.label || '用藥'}${record.amount ? ` ${record.amount}${record.subType || ''}` : ''}`
                         : `${record.weight}kg / ${record.height}cm`}
                     </div>
                     <div className="flex items-center gap-2 flex-wrap">
@@ -151,6 +156,7 @@ export const RecordList: React.FC<RecordListProps> = ({
                   {detailRecord.type === 'babyfood' && `${detailRecord.label || ''} ${detailRecord.amount}g`}
                   {detailRecord.type === 'temperature' && `${detailRecord.amount}°C`}
                   {detailRecord.type === 'growth' && `${detailRecord.weight} kg / ${detailRecord.height} cm`}
+                  {detailRecord.type === 'medication' && `${detailRecord.label || '用藥'}${detailRecord.amount ? ` ${detailRecord.amount}${detailRecord.subType || ''}` : ''}`}
                 </div>
                 <div className="text-xs text-slate-400 mt-1">
                   {detailRecord.type === 'feeding' && (detailRecord.milkType === 'formula' ? '配方奶' : '母奶')}
@@ -158,6 +164,7 @@ export const RecordList: React.FC<RecordListProps> = ({
                   {detailRecord.type === 'babyfood' && (detailRecord.subType || '副食品')}
                   {detailRecord.type === 'temperature' && (detailRecord.amount && detailRecord.amount >= 37.5 ? '⚠️ 發燒' : '體溫正常')}
                   {detailRecord.type === 'growth' && '成長紀錄'}
+                  {detailRecord.type === 'medication' && '用藥紀錄'}
                 </div>
               </div>
               {/* 時間 */}

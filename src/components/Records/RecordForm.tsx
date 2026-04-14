@@ -11,10 +11,12 @@ interface RecordFormProps {
   onStartSleep: (time: string) => void;
   onFinishSleep: () => void;
   solidFoodLabels: string[];
+  medicationLabels: string[];
+  defaultType?: RecordType;
 }
 
 export const RecordForm: React.FC<RecordFormProps> = ({
-  isEditing, records, onSave, onCancel, activeSleep, onStartSleep, onFinishSleep, solidFoodLabels,
+  isEditing, records, onSave, onCancel, activeSleep, onStartSleep, onFinishSleep, solidFoodLabels, medicationLabels, defaultType,
 }) => {
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
@@ -23,7 +25,7 @@ export const RecordForm: React.FC<RecordFormProps> = ({
     return () => clearInterval(t);
   }, [activeSleep]);
 
-  const [type, setType] = useState<RecordType>('feeding');
+  const [type, setType] = useState<RecordType>(defaultType || 'feeding');
   const [milkType, setMilkType] = useState<MilkType>('breast');
   const [amount, setAmount] = useState<number>(180);
   const [weight, setWeight] = useState<number>(3.5);
@@ -35,6 +37,9 @@ export const RecordForm: React.FC<RecordFormProps> = ({
   const [foodName, setFoodName] = useState('');
   const [foodGrams, setFoodGrams] = useState(30);
   const [temperature, setTemperature] = useState(36.5);
+  const [medName, setMedName] = useState('');
+  const [medAmount, setMedAmount] = useState<number | ''>('');
+  const [medUnit, setMedUnit] = useState('mg');
 
   useEffect(() => {
     if (isEditing) {
@@ -52,6 +57,11 @@ export const RecordForm: React.FC<RecordFormProps> = ({
         } else {
           setRecordEndTime('');
         }
+        if (r.type === 'medication') {
+          setMedName(r.label || '');
+          setMedAmount(r.amount ?? '');
+          setMedUnit(r.subType || 'mg');
+        }
       }
     } else {
       setRecordTime(formatLocalValue(new Date()));
@@ -67,17 +77,22 @@ export const RecordForm: React.FC<RecordFormProps> = ({
     onSave({
       type,
       milkType: type === 'feeding' ? milkType : undefined,
-      amount: type === 'feeding' || type === 'sleep' ? amount : type === 'babyfood' ? foodGrams : type === 'temperature' ? temperature : undefined,
+      amount: type === 'feeding' || type === 'sleep' ? amount
+        : type === 'babyfood' ? foodGrams
+        : type === 'temperature' ? temperature
+        : type === 'medication' ? (medAmount === '' ? undefined : medAmount)
+        : undefined,
       weight: type === 'growth' ? weight : undefined,
       height: type === 'growth' ? height : undefined,
-      subType: type === 'babyfood' ? foodCategory : undefined,
-      label: type === 'babyfood' ? foodName : undefined,
+      subType: type === 'babyfood' ? foodCategory : type === 'medication' ? medUnit : undefined,
+      label: type === 'babyfood' ? foodName : type === 'medication' ? medName : undefined,
       note, recordTime,
       recordEndTime: type === 'sleep' ? recordEndTime : undefined,
     });
     if (!isEditing) {
       setAmount(180); setNote(''); setWeight(3.5); setHeight(50); setMilkType('breast'); setType('feeding');
       setFoodCategory(''); setFoodName(''); setFoodGrams(30); setTemperature(36.5);
+      setMedName(''); setMedAmount(''); setMedUnit('mg');
     }
   };
 
@@ -122,6 +137,7 @@ export const RecordForm: React.FC<RecordFormProps> = ({
               { key: 'babyfood', label: '副食品🥦' },
               { key: 'temperature', label: '體溫🌡️' },
               { key: 'growth', label: '成長🌱' },
+              { key: 'medication', label: '用藥💊' },
             ] as { key: RecordType; label: string }[]).map((t) => (
               <button
                 key={t.key} type="button" onClick={() => setType(t.key)}
@@ -266,6 +282,56 @@ export const RecordForm: React.FC<RecordFormProps> = ({
                   {temperature >= 37.5 && <div className="text-xs text-rose-500 mt-1">發燒</div>}
                 </div>
                 <button type="button" onClick={() => setTemperature(+(temperature + 0.1).toFixed(1))} className="w-12 h-12 bg-white dark:bg-slate-600 rounded-xl shadow text-xl text-indigo-600 dark:text-indigo-400 active:scale-90">+</button>
+              </div>
+            </div>
+          )}
+
+          {type === 'medication' && (
+            <div className="space-y-4 animate-in fade-in">
+              <div>
+                <label className="text-xs text-slate-400 uppercase tracking-widest px-1 mb-1.5 block font-semibold">藥名</label>
+                <input
+                  type="text"
+                  list="medication-name-list"
+                  value={medName}
+                  onChange={e => setMedName(e.target.value)}
+                  placeholder="藥名（例：布洛芬）"
+                  className={inputCls}
+                />
+                {medicationLabels.length > 0 && (
+                  <datalist id="medication-name-list">
+                    {medicationLabels.map(name => (
+                      <option key={name} value={name} />
+                    ))}
+                  </datalist>
+                )}
+              </div>
+              <div className="flex gap-3">
+                <div className="flex-1">
+                  <label className="text-xs text-slate-400 uppercase tracking-widest px-1 mb-1.5 block font-semibold">劑量</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    value={medAmount}
+                    onChange={e => setMedAmount(e.target.value === '' ? '' : Number(e.target.value))}
+                    placeholder="例：5"
+                    className={inputCls}
+                  />
+                </div>
+                <div className="flex-1">
+                  <label className="text-xs text-slate-400 uppercase tracking-widest px-1 mb-1.5 block font-semibold">單位</label>
+                  <select
+                    value={medUnit}
+                    onChange={e => setMedUnit(e.target.value)}
+                    className={inputCls}
+                  >
+                    <option value="mg">mg</option>
+                    <option value="ml">ml</option>
+                    <option value="顆">顆</option>
+                    <option value="包">包</option>
+                  </select>
+                </div>
               </div>
             </div>
           )}

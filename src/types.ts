@@ -1,4 +1,4 @@
-export type RecordType = 'feeding' | 'sleep' | 'growth' | 'babyfood' | 'temperature' | 'vaccine' | 'formula_can' | 'formula_price';
+export type RecordType = 'feeding' | 'sleep' | 'growth' | 'babyfood' | 'temperature' | 'vaccine' | 'formula_can' | 'formula_price' | 'medication';
 export type MilkType = 'formula' | 'breast';
 export type TabType = 'home' | 'stats' | 'records' | 'settings';
 

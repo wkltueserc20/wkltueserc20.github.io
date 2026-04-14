@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import type { Record } from '../../types';
+import { formatTimeWithPeriod } from '../../utils/dateUtils';
 
 interface SummaryCardsProps {
   searchDate: string;
@@ -20,10 +21,12 @@ interface SummaryCardsProps {
     };
   };
   dailySolidFoodGrams?: number;
+  dailyMedCount?: number;
+  dailyMedRecords?: Record[];
 }
 
 export const SummaryCards: React.FC<SummaryCardsProps> = ({
-  searchDate, setSearchDate, isTodaySearch, stats, dailySolidFoodGrams,
+  searchDate, setSearchDate, isTodaySearch, stats, dailySolidFoodGrams, dailyMedCount, dailyMedRecords,
 }) => {
   const [showDetail, setShowDetail] = useState(false);
   const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -139,6 +142,19 @@ export const SummaryCards: React.FC<SummaryCardsProps> = ({
             </>
           )}
 
+          {dailyMedCount !== undefined && dailyMedCount > 0 && (
+            <>
+              <div className="w-px h-8 bg-slate-100 dark:bg-slate-700" />
+              <div className="flex flex-col items-center gap-0.5 min-w-[52px]">
+                <span className="text-xl">💊</span>
+                <span className="text-sm font-bold text-rose-600 dark:text-rose-400 leading-none">
+                  {dailyMedCount}
+                </span>
+                <span className="text-[9px] text-slate-400 uppercase tracking-wide">用藥</span>
+              </div>
+            </>
+          )}
+
           {stats.latestGrowth && (
             <>
               <div className="w-px h-8 bg-slate-100 dark:bg-slate-700" />
@@ -229,6 +245,24 @@ export const SummaryCards: React.FC<SummaryCardsProps> = ({
                 </div>
                 <div className="text-right">
                   <div className="text-sm font-bold text-green-600 dark:text-green-400">總計 {dailySolidFoodGrams} g</div>
+                </div>
+              </div>
+            )}
+
+            {dailyMedRecords && dailyMedRecords.length > 0 && (
+              <div className="py-3 border-b border-slate-50 dark:border-slate-700">
+                <div className="flex items-center gap-2 mb-2">
+                  <span>💊</span>
+                  <span className="text-sm text-slate-600 dark:text-slate-300">用藥</span>
+                  <span className="text-xs text-rose-500 font-semibold ml-auto">共 {dailyMedRecords.length} 次</span>
+                </div>
+                <div className="space-y-1.5">
+                  {dailyMedRecords.map(r => (
+                    <div key={r.id} className="flex justify-between items-center text-xs">
+                      <span className="text-slate-700 dark:text-slate-200 font-semibold">{r.label || '用藥'}{r.amount ? ` ${r.amount}${r.subType || ''}` : ''}</span>
+                      <span className="text-slate-400">{formatTimeWithPeriod(r.timestamp)}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}

@@ -47,6 +47,7 @@ function App() {
   );
   const [isEditing, setIsEditing] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [formDefaultType, setFormDefaultType] = useState<RecordType | undefined>();
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [showSyncGuide, setShowSyncGuide] = useState(() => !localStorage.getItem('sync-guide-dismissed'));
   const [isPulling, setIsPulling] = useState(false);
@@ -138,6 +139,10 @@ function App() {
       .filter(r => r.type === 'babyfood')
       .reduce((acc, r) => acc + (r.amount || 0), 0);
 
+    const dailyMedRecords = dayRecords
+      .filter(r => r.type === 'medication')
+      .sort((a, b) => b.timestamp - a.timestamp);
+
     return {
       milkTotal,
       sleepH: Math.floor(sleepMins / 60),
@@ -148,6 +153,7 @@ function App() {
       maxTemp,
       tempCount: tempRecords.length,
       dailySolidFoodGrams,
+      dailyMedRecords,
       yesterday: {
         milkTotal: yMilkTotal,
         sleepMins: ySleepMins
@@ -159,6 +165,18 @@ function App() {
     const seen = new Set<string>();
     return records
       .filter(r => !r.isDeleted && r.type === 'babyfood' && r.label)
+      .sort((a, b) => b.timestamp - a.timestamp)
+      .reduce<string[]>((acc, r) => {
+        const name = r.label!;
+        if (!seen.has(name)) { seen.add(name); acc.push(name); }
+        return acc;
+      }, []);
+  }, [records]);
+
+  const medicationLabels = useMemo(() => {
+    const seen = new Set<string>();
+    return records
+      .filter(r => !r.isDeleted && r.type === 'medication' && r.label)
       .sort((a, b) => b.timestamp - a.timestamp)
       .reduce<string[]>((acc, r) => {
         const name = r.label!;
@@ -595,7 +613,7 @@ function App() {
               />
             )}
 
-            <QuickRecord records={records} onQuickFeed={handleQuickFeed} />
+            <QuickRecord records={records} onQuickFeed={handleQuickFeed} onOpenMedication={() => { setIsEditing(null); setFormDefaultType('medication'); setShowForm(true); }} />
 
             <FeedCountdown records={records} feedIntervalMs={(babyInfo.feedIntervalHours || 4) * 3600000} quietHourStart={babyInfo.quietHourStart} quietHourEnd={babyInfo.quietHourEnd} />
 
@@ -605,6 +623,8 @@ function App() {
               isTodaySearch={isTodaySearch}
               stats={stats}
               dailySolidFoodGrams={stats.dailySolidFoodGrams}
+              dailyMedCount={stats.dailyMedRecords.length}
+              dailyMedRecords={stats.dailyMedRecords}
             />
 
             <RecordList
@@ -700,7 +720,7 @@ function App() {
           <div className="flex justify-center -mt-10">
             <button
               aria-label="新增紀錄"
-              onClick={() => { setIsEditing(null); setShowForm(true); }}
+              onClick={() => { setIsEditing(null); setFormDefaultType(undefined); setShowForm(true); }}
               className="w-14 h-14 bg-slate-900 dark:bg-indigo-600 text-white rounded-full flex items-center justify-center text-2xl shadow-2xl active:scale-90 transition-all border-4 border-white dark:border-slate-800"
             >
               ＋
@@ -726,20 +746,22 @@ function App() {
       </nav>
 
       {/* 全域表單抽屜 */}
-      <BottomSheet 
-        isOpen={showForm} 
-        onClose={() => { setShowForm(false); setIsEditing(null); }}
+      <BottomSheet
+        isOpen={showForm}
+        onClose={() => { setShowForm(false); setIsEditing(null); setFormDefaultType(undefined); }}
         title={isEditing ? "修改紀錄" : "新增育兒紀錄"}
       >
         <RecordForm
           isEditing={isEditing}
           records={records}
           onSave={handleSaveRecord}
-          onCancel={() => { setShowForm(false); setIsEditing(null); }}
+          onCancel={() => { setShowForm(false); setIsEditing(null); setFormDefaultType(undefined); }}
           activeSleep={activeSleep}
           onStartSleep={handleStartSleep}
           onFinishSleep={handleFinishSleep}
           solidFoodLabels={solidFoodLabels}
+          medicationLabels={medicationLabels}
+          defaultType={formDefaultType}
         />
       </BottomSheet>
 

@@ -5,6 +5,7 @@ import { formatTimeWithPeriod } from '../../utils/dateUtils';
 interface QuickRecordProps {
   records: Record[];
   onQuickFeed: (milkType: MilkType, amount: number) => void;
+  onOpenMedication?: () => void;
 }
 
 const formatRelative = (ts: number): string => {
@@ -15,7 +16,7 @@ const formatRelative = (ts: number): string => {
   return `${Math.floor(diff / 86400000)} 天前`;
 };
 
-export const QuickRecord: React.FC<QuickRecordProps> = ({ records, onQuickFeed }) => {
+export const QuickRecord: React.FC<QuickRecordProps> = ({ records, onQuickFeed, onOpenMedication }) => {
   const lastFeed = records.find(r => !r.isDeleted && r.type === 'feeding');
   const lastMilkType = lastFeed?.milkType || 'formula';
   const lastAmount = lastFeed?.amount || 180;
@@ -47,6 +48,14 @@ export const QuickRecord: React.FC<QuickRecordProps> = ({ records, onQuickFeed }
           <span>{lastMilkType === 'formula' ? '🤱' : '🍼'}</span>
           <span className="text-sm">{lastMilkType === 'formula' ? '母奶' : '配方'}{lastAmount}ml</span>
         </button>
+        {onOpenMedication && (
+          <button
+            onClick={onOpenMedication}
+            className="flex items-center justify-center gap-1 px-4 py-3 bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 rounded-xl active:scale-95 transition-all font-semibold"
+          >
+            <span>💊</span>
+          </button>
+        )}
       </div>
     </div>
   );

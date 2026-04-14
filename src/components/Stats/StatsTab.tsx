@@ -82,6 +82,12 @@ export const StatsTab: React.FC<StatsTabProps> = ({ records }) => {
   const barSize = statsRange > 14 ? 12 : 28;
   const tickFontSize = statsRange > 14 ? 8 : 10;
 
+  const latestMedication = useMemo(() => {
+    return records
+      .filter(r => !r.isDeleted && r.type === 'medication')
+      .sort((a, b) => b.timestamp - a.timestamp)[0] ?? null;
+  }, [records]);
+
   const formulaSpending = useMemo(() => {
     const cans = records.filter(r => r.type === 'formula_can' && !r.isDeleted && r.amount);
     const total = cans.reduce((s, r) => s + (r.amount || 0), 0);
@@ -166,6 +172,30 @@ export const StatsTab: React.FC<StatsTabProps> = ({ records }) => {
                 <Bar dataKey="grams" fill="#22c55e" radius={[8, 8, 8, 8]} barSize={barSize} />
               </BarChart>
             </ResponsiveContainer>
+          </div>
+        </div>
+      )}
+
+      {latestMedication && (
+        <div className="bg-white dark:bg-slate-800 p-7 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 text-left">
+          <h2 className="text-[11px] text-slate-900 dark:text-slate-100 mb-4 uppercase tracking-widest flex items-center gap-2">
+            <div className="w-2 h-5 bg-rose-400 rounded-full" /> 最近用藥
+          </h2>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-rose-50 dark:bg-rose-900/30 flex items-center justify-center text-lg">💊</div>
+              <div>
+                <div className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                  {latestMedication.label || '用藥'}
+                  {latestMedication.amount ? ` ${latestMedication.amount}${latestMedication.subType || ''}` : ''}
+                </div>
+                <div className="text-xs text-slate-400 mt-0.5">
+                  {new Date(latestMedication.timestamp).toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' })}
+                  {' '}
+                  {new Date(latestMedication.timestamp).toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}
