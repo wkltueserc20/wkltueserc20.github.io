@@ -62,6 +62,11 @@ export const RecordForm: React.FC<RecordFormProps> = ({
           setMedAmount(r.amount ?? '');
           setMedUnit(r.subType || 'mg');
         }
+        if (r.type === 'babyfood') {
+          setFoodName(r.label || '');
+          setFoodCategory(r.subType || '');
+          setFoodGrams(r.amount ?? 30);
+        }
       }
     } else {
       setRecordTime(formatLocalValue(new Date()));
