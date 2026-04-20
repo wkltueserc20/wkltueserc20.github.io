@@ -615,7 +615,7 @@ function App() {
 
             <QuickRecord records={records} onQuickFeed={handleQuickFeed} onOpenMedication={() => { setIsEditing(null); setFormDefaultType('medication'); setShowForm(true); }} />
 
-            <FeedCountdown records={records} feedIntervalMs={(babyInfo.feedIntervalHours || 4) * 3600000} quietHourStart={babyInfo.quietHourStart} quietHourEnd={babyInfo.quietHourEnd} />
+            <FeedCountdown records={records} feedIntervalMs={(babyInfo.feedIntervalHours || 4) * 3600000} quietHourStart={babyInfo.quietHourStart} quietHourEnd={babyInfo.quietHourEnd} quietHourDisabled={babyInfo.quietHourDisabled} />
 
             <SummaryCards
               searchDate={searchDate}

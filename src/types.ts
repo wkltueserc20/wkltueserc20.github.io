@@ -29,5 +29,6 @@ export interface BabyInfo {
   feedIntervalHours?: number;
   quietHourStart?: number;
   quietHourEnd?: number;
+  quietHourDisabled?: boolean;
   deviceName?: string;
 }
