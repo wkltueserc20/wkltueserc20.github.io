@@ -90,6 +90,7 @@ export const RecordList: React.FC<RecordListProps> = ({
                      : record.type === 'babyfood' ? '🥦'
                      : record.type === 'temperature' ? '🌡️'
                      : record.type === 'medication' ? '💊'
+                     : record.type === 'vaccine' ? '💉'
                      : '🌱'}
                   </div>
                   <div>
@@ -104,6 +105,8 @@ export const RecordList: React.FC<RecordListProps> = ({
                         ? <span className={record.amount && record.amount >= 37.5 ? 'text-rose-600' : ''}>{record.amount}°C{record.amount && record.amount >= 37.5 ? ' ⚠️' : ''}</span>
                         : record.type === 'medication'
                         ? `${record.label || '用藥'}${record.amount ? ` ${record.amount}${record.subType || ''}` : ''}`
+                        : record.type === 'vaccine'
+                        ? `${record.subType || '疫苗'}${record.label ? ` ${record.label}` : ''}`
                         : `${record.weight}kg / ${record.height}cm`}
                     </div>
                     <div className="flex items-center gap-2 flex-wrap">
