@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import type { Record, BabyInfo } from '../../types';
 import { VaccinePage } from '../Vaccine/VaccinePage';
 import { FormulaPage } from '../Formula/FormulaPage';
+import { SolidFoodStatsPage } from '../SolidFood/SolidFoodStatsPage';
 
 interface RecordsPageProps {
   records: Record[];
@@ -15,20 +16,21 @@ interface RecordsPageProps {
   onFormulaDelete: (id: string) => void;
 }
 
-type SubTab = 'vaccine' | 'formula';
+type SubTab = 'babyfood' | 'vaccine' | 'formula';
 
 export const RecordsPage: React.FC<RecordsPageProps> = ({
   records, babyInfo,
   onAddVaccine, onMarkVaccineDone, onEditVaccine, onDeleteVaccine,
   onFormulaAdd, onFormulaUpdate, onFormulaDelete,
 }) => {
-  const [subTab, setSubTab] = useState<SubTab>('formula');
+  const [subTab, setSubTab] = useState<SubTab>('babyfood');
 
   return (
     <div className="space-y-5">
       {/* 子標籤 */}
       <div className="flex bg-slate-100 dark:bg-slate-800 rounded-2xl p-1">
         {([
+          { id: 'babyfood', label: '🥣 副食品' },
           { id: 'formula', label: '🍼 奶粉' },
           { id: 'vaccine', label: '💉 疫苗' },
         ] as { id: SubTab; label: string }[]).map(tab => (
@@ -45,6 +47,10 @@ export const RecordsPage: React.FC<RecordsPageProps> = ({
           </button>
         ))}
       </div>
+
+      {subTab === 'babyfood' && (
+        <SolidFoodStatsPage records={records} />
+      )}
 
       {subTab === 'vaccine' && (
         <VaccinePage
