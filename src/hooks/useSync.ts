@@ -88,6 +88,7 @@ export const useSync = (babyInfo: BabyInfo | null, showToast: (msg: string) => v
           deviceName: r.deviceName || undefined,
           subType: r.subType || undefined,
           label: r.label || undefined,
+          ingredients: Array.isArray(r.ingredients) ? r.ingredients : undefined,
         }));
 
         const finalMerged = mergeRecords(latestLocal, remoteRecords);

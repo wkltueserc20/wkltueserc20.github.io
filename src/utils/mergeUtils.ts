@@ -18,8 +18,11 @@ export const mergeRecords = (local: Record[], remote: Record[]): Record[] => {
     }
   };
 
-  remote.forEach(addIfNewer);
+  // Process local first, then remote — remote wins only if strictly newer.
+  // This ensures that same-timestamp local changes (e.g. just-saved fields like
+  // ingredients that the server may not yet persist) are not silently dropped.
   local.forEach(addIfNewer);
+  remote.forEach(addIfNewer);
 
   return Array.from(mergedMap.values()).sort((a, b) => b.timestamp - a.timestamp);
 };
