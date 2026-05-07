@@ -82,7 +82,7 @@ const IngredientSheet: React.FC<IngredientSheetProps> = ({ label, current, sugge
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end" onClick={onClose}>
+    <div className="fixed inset-0 z-[60] flex items-end" onClick={onClose}>
       <div
         className="w-full bg-white dark:bg-slate-800 rounded-t-3xl shadow-2xl p-5 pb-8 max-h-[75vh] overflow-y-auto transition-[margin] duration-150"
         style={{ marginBottom: keyboardOffset }}
