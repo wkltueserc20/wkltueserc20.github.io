@@ -154,6 +154,7 @@ const IngredientSheet: React.FC<IngredientSheetProps> = ({ label, current, sugge
 export const SolidFoodStatsPage: React.FC<SolidFoodStatsPageProps> = ({ records, onUpdateIngredients }) => {
   const [expandedFood, setExpandedFood] = useState<string | null>(null);
   const [sheetLabel, setSheetLabel] = useState<string | null>(null);
+  const [showIngredientList, setShowIngredientList] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const touchMovedRef = useRef(false);
 
@@ -193,6 +194,18 @@ export const SolidFoodStatsPage: React.FC<SolidFoodStatsPageProps> = ({ records,
 
   // 已嘗試唯一食材數
   const uniqueIngredientCount = allUsedIngredients.length;
+
+  // ingredient → 出現的 label 清單
+  const ingredientToLabels = useMemo(() => {
+    const map = new Map<string, string[]>();
+    groups.forEach(g => {
+      g.ingredients.forEach(i => {
+        if (!map.has(i)) map.set(i, []);
+        map.get(i)!.push(g.label);
+      });
+    });
+    return map;
+  }, [groups]);
 
   const handleLongPress = useCallback((label: string) => {
     setExpandedFood(prev => (prev === label ? null : label));
@@ -241,15 +254,21 @@ export const SolidFoodStatsPage: React.FC<SolidFoodStatsPageProps> = ({ records,
     <>
       <div className="space-y-3">
         {/* 食材多樣性摘要 */}
-        <div className="bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-800 rounded-2xl px-5 py-3.5 flex items-center gap-3">
+        <button
+          className="w-full bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-800 rounded-2xl px-5 py-3.5 flex items-center gap-3 active:scale-[0.98] transition-transform duration-150"
+          onClick={() => uniqueIngredientCount > 0 && setShowIngredientList(true)}
+        >
           <span className="text-2xl">🥬</span>
-          <div>
+          <div className="flex-1 text-left">
             <p className="text-xs text-green-600 dark:text-green-400 font-medium">已嘗試食材種類</p>
             <p className="text-xl font-bold text-green-700 dark:text-green-300">
               {uniqueIngredientCount} <span className="text-sm font-normal">種</span>
             </p>
           </div>
-        </div>
+          {uniqueIngredientCount > 0 && (
+            <span className="text-xs text-green-400 dark:text-green-600">點擊查看 ›</span>
+          )}
+        </button>
 
         {groups.map(g => (
           <div key={g.label}>
@@ -327,6 +346,36 @@ export const SolidFoodStatsPage: React.FC<SolidFoodStatsPageProps> = ({ records,
           onAdd={ingredient => handleAddIngredient(sheetLabel, ingredient)}
           onClose={() => setSheetLabel(null)}
         />
+      )}
+
+      {showIngredientList && (
+        <div className="fixed inset-0 z-[60] flex items-end" onClick={() => setShowIngredientList(false)}>
+          <div
+            className="w-full bg-white dark:bg-slate-800 rounded-t-3xl shadow-2xl p-5 pb-10 max-h-[80vh] overflow-y-auto"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="w-10 h-1 bg-slate-200 dark:bg-slate-600 rounded-full mx-auto mb-4" />
+            <p className="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-1">
+              已嘗試食材種類
+            </p>
+            <p className="text-xs text-slate-400 dark:text-slate-500 mb-4">
+              共 {uniqueIngredientCount} 種
+            </p>
+            <div className="space-y-2.5">
+              {[...allUsedIngredients].sort((a, b) => a.localeCompare(b, 'zh-TW')).map(ingredient => {
+                const labels = ingredientToLabels.get(ingredient) ?? [];
+                return (
+                  <div key={ingredient} className="flex items-start justify-between gap-3 py-2.5 border-b border-slate-50 dark:border-slate-700 last:border-0">
+                    <span className="text-sm font-medium text-slate-800 dark:text-slate-100">{ingredient}</span>
+                    <span className="text-xs text-slate-400 dark:text-slate-500 text-right shrink-0 max-w-[55%] leading-relaxed">
+                      {labels.join('、')}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
       )}
     </>
   );
