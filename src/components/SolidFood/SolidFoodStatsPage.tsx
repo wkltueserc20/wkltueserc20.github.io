@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useRef, useCallback, useEffect } from 'react';
+import React, { useMemo, useState, useCallback, useEffect } from 'react';
 import type { Record } from '../../types';
 import { inferIngredients } from '../../utils/ingredientInference';
 
@@ -25,8 +25,6 @@ function formatTime(ts: number): string {
     minute: '2-digit',
   });
 }
-
-const LONG_PRESS_MS = 500;
 
 interface IngredientSheetProps {
   label: string;
