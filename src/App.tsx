@@ -356,6 +356,19 @@ function App() {
     showToast(`${record.subType} ${record.label} 已更新 ✅`);
   };
 
+  const handleUpdateIngredients = (label: string, newIngredients: string[]) => {
+    const now = Date.now();
+    const updatedRecords = records.map(r =>
+      r.type === 'babyfood' && !r.isDeleted && r.label === label
+        ? { ...r, ingredients: newIngredients, updatedAt: now }
+        : r
+    );
+    updatedRecords
+      .filter(r => r.type === 'babyfood' && !r.isDeleted && r.label === label)
+      .forEach(r => updateRecord(r));
+    fullSync(updatedRecords, setAllRecords);
+  };
+
   const handlePullRefresh = useCallback(() => {
     if (isPulling || !isConnected) return;
     setIsPulling(true);
@@ -668,6 +681,7 @@ function App() {
           <RecordsPage
             records={records}
             babyInfo={babyInfo}
+            onUpdateIngredients={handleUpdateIngredients}
             onAddVaccine={handleAddVaccine}
             onMarkVaccineDone={handleMarkVaccineDone}
             onEditVaccine={handleEditVaccine}

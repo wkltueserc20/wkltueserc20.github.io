@@ -18,6 +18,7 @@ export interface Record {
   deviceName?: string;
   subType?: string;
   label?: string;
+  ingredients?: string[];
 }
 
 export interface BabyInfo {

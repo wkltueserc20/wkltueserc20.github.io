@@ -1,8 +1,10 @@
 import React, { useMemo, useState, useRef, useCallback } from 'react';
 import type { Record } from '../../types';
+import { inferIngredients } from '../../utils/ingredientInference';
 
 interface SolidFoodStatsPageProps {
   records: Record[];
+  onUpdateIngredients: (label: string, newIngredients: string[]) => void;
 }
 
 interface FoodGroup {
@@ -12,6 +14,7 @@ interface FoodGroup {
   latestTimestamp: number;
   latestGrams: number;
   history: { timestamp: number; grams: number }[];
+  ingredients: string[];
 }
 
 function formatTime(ts: number): string {
@@ -25,8 +28,116 @@ function formatTime(ts: number): string {
 
 const LONG_PRESS_MS = 500;
 
-export const SolidFoodStatsPage: React.FC<SolidFoodStatsPageProps> = ({ records }) => {
+interface IngredientSheetProps {
+  label: string;
+  current: string[];
+  suggested: string[];
+  allUsed: string[];
+  onAdd: (ingredient: string) => void;
+  onClose: () => void;
+}
+
+const IngredientSheet: React.FC<IngredientSheetProps> = ({ label, current, suggested, allUsed, onAdd, onClose }) => {
+  const [input, setInput] = useState('');
+
+  const filteredHistory = useMemo(() => {
+    const q = input.trim().toLowerCase();
+    return allUsed.filter(i => !current.includes(i) && (q === '' || i.includes(q)));
+  }, [allUsed, current, input]);
+
+  const filteredSuggested = suggested.filter(i => !current.includes(i));
+
+  const handleAdd = (ingredient: string) => {
+    const trimmed = ingredient.trim();
+    if (trimmed && !current.includes(trimmed)) {
+      onAdd(trimmed);
+    }
+    setInput('');
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && input.trim()) {
+      handleAdd(input);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end" onClick={onClose}>
+      <div
+        className="w-full bg-white dark:bg-slate-800 rounded-t-3xl shadow-2xl p-5 pb-8 max-h-[75vh] overflow-y-auto"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="w-10 h-1 bg-slate-200 dark:bg-slate-600 rounded-full mx-auto mb-4" />
+        <p className="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-4">
+          「{label}」的食材
+        </p>
+
+        <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-700 rounded-xl px-3 py-2 mb-4">
+          <input
+            autoFocus
+            className="flex-1 bg-transparent text-sm text-slate-700 dark:text-slate-200 outline-none placeholder-slate-400"
+            placeholder="輸入新食材..."
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+          />
+          {input.trim() && (
+            <button
+              className="text-xs bg-green-500 text-white rounded-lg px-2.5 py-1 font-medium"
+              onClick={() => handleAdd(input)}
+            >
+              新增
+            </button>
+          )}
+        </div>
+
+        {filteredSuggested.length > 0 && (
+          <div className="mb-4">
+            <p className="text-xs text-slate-400 dark:text-slate-500 mb-2">💡 自動建議</p>
+            <div className="flex flex-wrap gap-2">
+              {filteredSuggested.map(i => (
+                <button
+                  key={i}
+                  className="px-3 py-1.5 bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-700 rounded-full text-sm font-medium"
+                  onClick={() => handleAdd(i)}
+                >
+                  {i}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {filteredHistory.length > 0 && (
+          <div>
+            <p className="text-xs text-slate-400 dark:text-slate-500 mb-2">📌 已用過的食材</p>
+            <div className="flex flex-wrap gap-2">
+              {filteredHistory.map(i => (
+                <button
+                  key={i}
+                  className="px-3 py-1.5 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600 rounded-full text-sm"
+                  onClick={() => handleAdd(i)}
+                >
+                  {i}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {filteredSuggested.length === 0 && filteredHistory.length === 0 && !input && (
+          <p className="text-xs text-slate-400 dark:text-slate-500 text-center py-4">
+            輸入食材名稱後按 Enter 新增
+          </p>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export const SolidFoodStatsPage: React.FC<SolidFoodStatsPageProps> = ({ records, onUpdateIngredients }) => {
   const [expandedFood, setExpandedFood] = useState<string | null>(null);
+  const [sheetLabel, setSheetLabel] = useState<string | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const touchMovedRef = useRef(false);
 
@@ -37,7 +148,7 @@ export const SolidFoodStatsPage: React.FC<SolidFoodStatsPageProps> = ({ records 
       .forEach(r => {
         const label = r.label!;
         if (!map.has(label)) {
-          map.set(label, { label, count: 0, totalGrams: 0, latestTimestamp: 0, latestGrams: 0, history: [] });
+          map.set(label, { label, count: 0, totalGrams: 0, latestTimestamp: 0, latestGrams: 0, history: [], ingredients: [] });
         }
         const g = map.get(label)!;
         g.count += 1;
@@ -47,12 +158,25 @@ export const SolidFoodStatsPage: React.FC<SolidFoodStatsPageProps> = ({ records 
           g.latestTimestamp = r.timestamp;
           g.latestGrams = r.amount || 0;
         }
+        if (g.ingredients.length === 0 && r.ingredients && r.ingredients.length > 0) {
+          g.ingredients = r.ingredients;
+        }
       });
 
     return Array.from(map.values())
       .map(g => ({ ...g, history: [...g.history].sort((a, b) => b.timestamp - a.timestamp) }))
       .sort((a, b) => b.count - a.count);
   }, [records]);
+
+  // 所有已標記食材的聯集
+  const allUsedIngredients = useMemo<string[]>(() => {
+    const set = new Set<string>();
+    groups.forEach(g => g.ingredients.forEach(i => set.add(i)));
+    return Array.from(set);
+  }, [groups]);
+
+  // 已嘗試唯一食材數
+  const uniqueIngredientCount = allUsedIngredients.length;
 
   const handleLongPress = useCallback((label: string) => {
     setExpandedFood(prev => (prev === label ? null : label));
@@ -70,6 +194,23 @@ export const SolidFoodStatsPage: React.FC<SolidFoodStatsPageProps> = ({ records 
     if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
   }, []);
 
+  const handleRemoveIngredient = (label: string, ingredient: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const group = groups.find(g => g.label === label);
+    if (!group) return;
+    const updated = group.ingredients.filter(i => i !== ingredient);
+    onUpdateIngredients(label, updated);
+  };
+
+  const handleAddIngredient = (label: string, ingredient: string) => {
+    const group = groups.find(g => g.label === label);
+    if (!group) return;
+    if (group.ingredients.includes(ingredient)) return;
+    onUpdateIngredients(label, [...group.ingredients, ingredient]);
+  };
+
+  const activeGroup = sheetLabel ? groups.find(g => g.label === sheetLabel) : null;
+
   if (groups.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
@@ -81,44 +222,96 @@ export const SolidFoodStatsPage: React.FC<SolidFoodStatsPageProps> = ({ records 
   }
 
   return (
-    <div className="space-y-3">
-      {groups.map(g => (
-        <div key={g.label}>
-          <div
-            className={`bg-white dark:bg-slate-800 rounded-2xl px-5 py-4 shadow-sm border border-slate-100 dark:border-slate-700 select-none cursor-pointer active:scale-[0.98] transition-transform duration-150 ${
-              expandedFood === g.label ? 'rounded-b-none border-b-0' : ''
-            }`}
-            onTouchStart={() => startPress(g.label)}
-            onTouchMove={() => { touchMovedRef.current = true; cancelPress(); }}
-            onTouchEnd={cancelPress}
-            onContextMenu={e => { e.preventDefault(); handleLongPress(g.label); }}
-          >
-            <div className="flex items-center justify-between">
-              <span className="text-base font-semibold text-slate-800 dark:text-slate-100">{g.label}</span>
-              <span className="text-xs text-slate-400 dark:text-slate-500">長按展開</span>
-            </div>
-            <div className="flex items-center gap-3 mt-1.5 text-sm text-slate-500 dark:text-slate-400">
-              <span>共 <b className="text-slate-700 dark:text-slate-200">{g.count}</b> 次</span>
-              <span>·</span>
-              <span>總計 <b className="text-slate-700 dark:text-slate-200">{g.totalGrams}g</b></span>
-            </div>
-            <div className="mt-1 text-xs text-slate-400 dark:text-slate-500">
-              最近：{formatTime(g.latestTimestamp)} · {g.latestGrams}g
-            </div>
+    <>
+      <div className="space-y-3">
+        {/* 食材多樣性摘要 */}
+        <div className="bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-800 rounded-2xl px-5 py-3.5 flex items-center gap-3">
+          <span className="text-2xl">🥬</span>
+          <div>
+            <p className="text-xs text-green-600 dark:text-green-400 font-medium">已嘗試食材種類</p>
+            <p className="text-xl font-bold text-green-700 dark:text-green-300">
+              {uniqueIngredientCount} <span className="text-sm font-normal">種</span>
+            </p>
           </div>
-
-          {expandedFood === g.label && (
-            <div className="bg-slate-50 dark:bg-slate-800/60 rounded-b-2xl border border-t-0 border-slate-100 dark:border-slate-700 divide-y divide-slate-100 dark:divide-slate-700 overflow-hidden">
-              {g.history.map((h, i) => (
-                <div key={i} className="flex items-center justify-between px-5 py-3">
-                  <span className="text-xs text-slate-500 dark:text-slate-400">{formatTime(h.timestamp)}</span>
-                  <span className="text-sm font-medium text-slate-700 dark:text-slate-200">{h.grams}g</span>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
-      ))}
-    </div>
+
+        {groups.map(g => (
+          <div key={g.label}>
+            <div
+              className={`bg-white dark:bg-slate-800 rounded-2xl px-5 py-4 shadow-sm border border-slate-100 dark:border-slate-700 select-none ${
+                expandedFood === g.label ? 'rounded-b-none border-b-0' : ''
+              }`}
+              onTouchStart={() => startPress(g.label)}
+              onTouchMove={() => { touchMovedRef.current = true; cancelPress(); }}
+              onTouchEnd={cancelPress}
+              onContextMenu={e => { e.preventDefault(); handleLongPress(g.label); }}
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-base font-semibold text-slate-800 dark:text-slate-100">{g.label}</span>
+                <span className="text-xs text-slate-400 dark:text-slate-500">長按展開</span>
+              </div>
+              <div className="flex items-center gap-3 mt-1.5 text-sm text-slate-500 dark:text-slate-400">
+                <span>共 <b className="text-slate-700 dark:text-slate-200">{g.count}</b> 次</span>
+                <span>·</span>
+                <span>總計 <b className="text-slate-700 dark:text-slate-200">{g.totalGrams}g</b></span>
+              </div>
+              <div className="mt-1 text-xs text-slate-400 dark:text-slate-500">
+                最近：{formatTime(g.latestTimestamp)} · {g.latestGrams}g
+              </div>
+
+              {/* 食材標籤區 */}
+              <div className="flex flex-wrap items-center gap-1.5 mt-2.5">
+                {g.ingredients.length > 0 ? (
+                  g.ingredients.map(ingredient => (
+                    <span
+                      key={ingredient}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-700 rounded-full text-xs font-medium"
+                    >
+                      {ingredient}
+                      <button
+                        className="text-green-400 dark:text-green-500 hover:text-green-600 dark:hover:text-green-300 leading-none"
+                        onClick={e => handleRemoveIngredient(g.label, ingredient, e)}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-xs text-slate-300 dark:text-slate-600">（未標記）</span>
+                )}
+                <button
+                  className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-400 dark:text-slate-400 text-sm font-medium hover:bg-green-100 dark:hover:bg-green-900/40 hover:text-green-600 dark:hover:text-green-400 transition-colors"
+                  onClick={e => { e.stopPropagation(); setSheetLabel(g.label); }}
+                >
+                  ＋
+                </button>
+              </div>
+            </div>
+
+            {expandedFood === g.label && (
+              <div className="bg-slate-50 dark:bg-slate-800/60 rounded-b-2xl border border-t-0 border-slate-100 dark:border-slate-700 divide-y divide-slate-100 dark:divide-slate-700 overflow-hidden">
+                {g.history.map((h, i) => (
+                  <div key={i} className="flex items-center justify-between px-5 py-3">
+                    <span className="text-xs text-slate-500 dark:text-slate-400">{formatTime(h.timestamp)}</span>
+                    <span className="text-sm font-medium text-slate-700 dark:text-slate-200">{h.grams}g</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {sheetLabel && activeGroup && (
+        <IngredientSheet
+          label={sheetLabel}
+          current={activeGroup.ingredients}
+          suggested={inferIngredients(sheetLabel)}
+          allUsed={allUsedIngredients.filter(i => !activeGroup.ingredients.includes(i))}
+          onAdd={ingredient => handleAddIngredient(sheetLabel, ingredient)}
+          onClose={() => setSheetLabel(null)}
+        />
+      )}
+    </>
   );
 };
