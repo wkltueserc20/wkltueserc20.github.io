@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useRef, useCallback } from 'react';
+import React, { useMemo, useState, useRef, useCallback, useEffect } from 'react';
 import type { Record } from '../../types';
 import { inferIngredients } from '../../utils/ingredientInference';
 
@@ -39,13 +39,33 @@ interface IngredientSheetProps {
 
 const IngredientSheet: React.FC<IngredientSheetProps> = ({ label, current, suggested, allUsed, onAdd, onClose }) => {
   const [input, setInput] = useState('');
+  const [keyboardOffset, setKeyboardOffset] = useState(0);
+
+  // Track keyboard height via visualViewport so sheet slides above keyboard on iOS
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const update = () => {
+      const offset = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+      setKeyboardOffset(offset);
+    };
+    vv.addEventListener('resize', update);
+    vv.addEventListener('scroll', update);
+    return () => {
+      vv.removeEventListener('resize', update);
+      vv.removeEventListener('scroll', update);
+    };
+  }, []);
+
+  const filteredSuggested = useMemo(
+    () => suggested.filter(i => !current.includes(i)),
+    [suggested, current]
+  );
 
   const filteredHistory = useMemo(() => {
     const q = input.trim().toLowerCase();
     return allUsed.filter(i => !current.includes(i) && (q === '' || i.includes(q)));
   }, [allUsed, current, input]);
-
-  const filteredSuggested = suggested.filter(i => !current.includes(i));
 
   const handleAdd = (ingredient: string) => {
     const trimmed = ingredient.trim();
@@ -64,7 +84,8 @@ const IngredientSheet: React.FC<IngredientSheetProps> = ({ label, current, sugge
   return (
     <div className="fixed inset-0 z-50 flex items-end" onClick={onClose}>
       <div
-        className="w-full bg-white dark:bg-slate-800 rounded-t-3xl shadow-2xl p-5 pb-8 max-h-[75vh] overflow-y-auto"
+        className="w-full bg-white dark:bg-slate-800 rounded-t-3xl shadow-2xl p-5 pb-8 max-h-[75vh] overflow-y-auto transition-[margin] duration-150"
+        style={{ marginBottom: keyboardOffset }}
         onClick={e => e.stopPropagation()}
       >
         <div className="w-10 h-1 bg-slate-200 dark:bg-slate-600 rounded-full mx-auto mb-4" />
@@ -72,25 +93,7 @@ const IngredientSheet: React.FC<IngredientSheetProps> = ({ label, current, sugge
           「{label}」的食材
         </p>
 
-        <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-700 rounded-xl px-3 py-2 mb-4">
-          <input
-            autoFocus
-            className="flex-1 bg-transparent text-sm text-slate-700 dark:text-slate-200 outline-none placeholder-slate-400"
-            placeholder="輸入新食材..."
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-          />
-          {input.trim() && (
-            <button
-              className="text-xs bg-green-500 text-white rounded-lg px-2.5 py-1 font-medium"
-              onClick={() => handleAdd(input)}
-            >
-              新增
-            </button>
-          )}
-        </div>
-
+        {/* Chips first — visible without triggering keyboard */}
         {filteredSuggested.length > 0 && (
           <div className="mb-4">
             <p className="text-xs text-slate-400 dark:text-slate-500 mb-2">💡 自動建議</p>
@@ -109,8 +112,8 @@ const IngredientSheet: React.FC<IngredientSheetProps> = ({ label, current, sugge
         )}
 
         {filteredHistory.length > 0 && (
-          <div>
-            <p className="text-xs text-slate-400 dark:text-slate-500 mb-2">📌 已用過的食材</p>
+          <div className="mb-4">
+            <p className="text-xs text-slate-400 dark:text-slate-500 mb-2">📌 已新增過的食材</p>
             <div className="flex flex-wrap gap-2">
               {filteredHistory.map(i => (
                 <button
@@ -125,11 +128,24 @@ const IngredientSheet: React.FC<IngredientSheetProps> = ({ label, current, sugge
           </div>
         )}
 
-        {filteredSuggested.length === 0 && filteredHistory.length === 0 && !input && (
-          <p className="text-xs text-slate-400 dark:text-slate-500 text-center py-4">
-            輸入食材名稱後按 Enter 新增
-          </p>
-        )}
+        {/* Input below chips — keyboard appears only when user taps here */}
+        <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-700 rounded-xl px-3 py-2">
+          <input
+            className="flex-1 bg-transparent text-sm text-slate-700 dark:text-slate-200 outline-none placeholder-slate-400"
+            placeholder="輸入新食材名稱..."
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+          />
+          {input.trim() && (
+            <button
+              className="text-xs bg-green-500 text-white rounded-lg px-2.5 py-1 font-medium"
+              onClick={() => handleAdd(input)}
+            >
+              新增
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
