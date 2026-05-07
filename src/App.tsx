@@ -257,6 +257,7 @@ function App() {
       height: recordData.height,
       subType: recordData.subType,
       label: recordData.label,
+      ingredients: recordData.ingredients,
       updatedAt: Date.now(),
       deviceName: myDevice,
     };

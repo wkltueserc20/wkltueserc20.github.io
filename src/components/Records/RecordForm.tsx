@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import type { Record, RecordType, MilkType } from '../../types';
 import { formatLocalValue } from '../../utils/dateUtils';
+import { inferIngredients } from '../../utils/ingredientInference';
 
 interface RecordFormProps {
   isEditing: string | null;
@@ -36,6 +37,8 @@ export const RecordForm: React.FC<RecordFormProps> = ({
   const [foodCategory, setFoodCategory] = useState('');
   const [foodName, setFoodName] = useState('');
   const [foodGrams, setFoodGrams] = useState(30);
+  const [foodIngredients, setFoodIngredients] = useState<string[]>([]);
+  const [ingredientInput, setIngredientInput] = useState('');
   const [temperature, setTemperature] = useState(36.5);
   const [medName, setMedName] = useState('');
   const [medAmount, setMedAmount] = useState<number | ''>('');
@@ -66,6 +69,7 @@ export const RecordForm: React.FC<RecordFormProps> = ({
           setFoodName(r.label || '');
           setFoodCategory(r.subType || '');
           setFoodGrams(r.amount ?? 30);
+          setFoodIngredients(r.ingredients ?? []);
         }
       }
     } else {
@@ -91,15 +95,26 @@ export const RecordForm: React.FC<RecordFormProps> = ({
       height: type === 'growth' ? height : undefined,
       subType: type === 'babyfood' ? foodCategory : type === 'medication' ? medUnit : undefined,
       label: type === 'babyfood' ? foodName : type === 'medication' ? medName : undefined,
+      ingredients: type === 'babyfood' ? foodIngredients : undefined,
       note, recordTime,
       recordEndTime: type === 'sleep' ? recordEndTime : undefined,
     });
     if (!isEditing) {
       setAmount(180); setNote(''); setWeight(3.5); setHeight(50); setMilkType('breast'); setType('feeding');
-      setFoodCategory(''); setFoodName(''); setFoodGrams(30); setTemperature(36.5);
+      setFoodCategory(''); setFoodName(''); setFoodGrams(30); setFoodIngredients([]); setIngredientInput(''); setTemperature(36.5);
       setMedName(''); setMedAmount(''); setMedUnit('mg');
     }
   };
+
+  // 所有歷史食材（從 records 計算）
+  const allUsedIngredients = useMemo(() => {
+    const set = new Set<string>();
+    records.forEach(r => r.type === 'babyfood' && r.ingredients?.forEach(i => set.add(i)));
+    return Array.from(set);
+  }, [records]);
+
+  // 自動推斷 (foodName 變化時更新)
+  const inferred = useMemo(() => inferIngredients(foodName), [foodName]);
 
   const inputCls = "w-full min-w-0 p-3.5 bg-slate-50 dark:bg-slate-700 dark:text-slate-200 rounded-xl outline-none text-sm border border-slate-100 dark:border-slate-600 box-border";
 
@@ -234,21 +249,6 @@ export const RecordForm: React.FC<RecordFormProps> = ({
 
           {type === 'babyfood' && (
             <div className="space-y-4 animate-in fade-in">
-              <div>
-                <label className="text-xs text-slate-400 uppercase tracking-widest px-1 mb-1.5 block font-semibold">食物類別</label>
-                <div className="flex gap-2 flex-wrap">
-                  {['米糊', '蔬菜泥', '水果泥', '蛋白質', '其他'].map(c => (
-                    <button key={c} type="button" onClick={() => setFoodCategory(c)}
-                      className={`px-4 py-2 rounded-xl text-xs transition-all font-semibold ${
-                        foodCategory === c ? 'bg-emerald-600 text-white shadow-md' : 'bg-slate-50 dark:bg-slate-700 text-slate-400 border border-slate-100 dark:border-slate-600'
-                      }`}
-                    >{c}</button>
-                  ))}
-                </div>
-                {foodCategory === '其他' && (
-                  <input type="text" value={foodCategory === '其他' ? '' : foodCategory} onChange={e => setFoodCategory(e.target.value || '其他')} placeholder="自訂類別..." className={`${inputCls} mt-2`} />
-                )}
-              </div>
               <input
                 type="text"
                 list="food-name-list"
@@ -264,6 +264,82 @@ export const RecordForm: React.FC<RecordFormProps> = ({
                   ))}
                 </datalist>
               )}
+
+              {/* 食材標籤區 */}
+              <div className="space-y-2.5">
+                <label className="text-xs text-slate-400 uppercase tracking-widest px-1 font-semibold">食材</label>
+
+                {/* 已加入的食材 */}
+                {foodIngredients.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {foodIngredients.map(i => (
+                      <span key={i} className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-700 rounded-full text-xs font-medium">
+                        {i}
+                        <button type="button" className="text-emerald-400 hover:text-emerald-600 leading-none" onClick={() => setFoodIngredients(prev => prev.filter(x => x !== i))}>×</button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                {/* 自動建議 */}
+                {inferred.filter(i => !foodIngredients.includes(i)).length > 0 && (
+                  <div>
+                    <p className="text-[10px] text-slate-400 dark:text-slate-500 mb-1.5">💡 自動建議</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {inferred.filter(i => !foodIngredients.includes(i)).map(i => (
+                        <button key={i} type="button"
+                          className="px-2.5 py-1 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-700 rounded-full text-xs font-medium"
+                          onClick={() => setFoodIngredients(prev => [...prev, i])}
+                        >+ {i}</button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* 歷史食材 */}
+                {allUsedIngredients.filter(i => !foodIngredients.includes(i) && !inferred.includes(i)).length > 0 && (
+                  <div>
+                    <p className="text-[10px] text-slate-400 dark:text-slate-500 mb-1.5">📌 已用過的食材</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {allUsedIngredients.filter(i => !foodIngredients.includes(i) && !inferred.includes(i)).map(i => (
+                        <button key={i} type="button"
+                          className="px-2.5 py-1 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600 rounded-full text-xs"
+                          onClick={() => setFoodIngredients(prev => [...prev, i])}
+                        >{i}</button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* 自訂輸入 */}
+                <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-700 rounded-xl px-3 py-2 border border-slate-100 dark:border-slate-600">
+                  <input
+                    type="text"
+                    className="flex-1 bg-transparent text-sm text-slate-700 dark:text-slate-200 outline-none placeholder-slate-400"
+                    placeholder="輸入新食材..."
+                    value={ingredientInput}
+                    onChange={e => setIngredientInput(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        const v = ingredientInput.trim();
+                        if (v && !foodIngredients.includes(v)) setFoodIngredients(prev => [...prev, v]);
+                        setIngredientInput('');
+                      }
+                    }}
+                  />
+                  {ingredientInput.trim() && (
+                    <button type="button"
+                      className="text-xs bg-emerald-500 text-white rounded-lg px-2.5 py-1 font-medium"
+                      onClick={() => {
+                        const v = ingredientInput.trim();
+                        if (v && !foodIngredients.includes(v)) setFoodIngredients(prev => [...prev, v]);
+                        setIngredientInput('');
+                      }}
+                    >新增</button>
+                  )}
+                </div>
+              </div>
               <div className="flex items-center justify-between bg-slate-50 dark:bg-slate-700 p-4 rounded-2xl border border-slate-100 dark:border-slate-600">
                 <button type="button" onClick={() => setFoodGrams(Math.max(0, foodGrams - 5))} className="w-12 h-12 bg-white dark:bg-slate-600 rounded-xl shadow text-xl text-emerald-600 dark:text-emerald-400 active:scale-90">-</button>
                 <div className="text-center">
