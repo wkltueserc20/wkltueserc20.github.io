@@ -267,7 +267,9 @@ export const RecordForm: React.FC<RecordFormProps> = ({
 
               {/* 食材標籤區 */}
               <div className="space-y-2.5">
-                <label className="text-xs text-slate-400 uppercase tracking-widest px-1 font-semibold">食材</label>
+                <label className="text-xs text-slate-400 uppercase tracking-widest px-1 font-semibold">
+                  食材{foodIngredients.length > 0 && <span className="normal-case tracking-normal ml-1 text-emerald-500">（已選 {foodIngredients.length}）</span>}
+                </label>
 
                 {/* 已加入的食材 */}
                 {foodIngredients.length > 0 && (

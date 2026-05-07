@@ -82,7 +82,7 @@ const IngredientSheet: React.FC<IngredientSheetProps> = ({ label, current, sugge
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-end" onClick={onClose}>
+    <div className="fixed inset-0 z-[60] flex items-end bg-black/40" onClick={onClose}>
       <div
         className="w-full bg-white dark:bg-slate-800 rounded-t-3xl shadow-2xl p-5 pb-8 max-h-[75vh] overflow-y-auto transition-[margin] duration-150"
         style={{ marginBottom: keyboardOffset }}
@@ -155,8 +155,6 @@ export const SolidFoodStatsPage: React.FC<SolidFoodStatsPageProps> = ({ records,
   const [expandedFood, setExpandedFood] = useState<string | null>(null);
   const [sheetLabel, setSheetLabel] = useState<string | null>(null);
   const [showIngredientList, setShowIngredientList] = useState(false);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const touchMovedRef = useRef(false);
 
   const groups = useMemo<FoodGroup[]>(() => {
     const map = new Map<string, FoodGroup>();
@@ -207,20 +205,9 @@ export const SolidFoodStatsPage: React.FC<SolidFoodStatsPageProps> = ({ records,
     return map;
   }, [groups]);
 
-  const handleLongPress = useCallback((label: string) => {
+  const toggleExpand = useCallback((label: string) => {
     setExpandedFood(prev => (prev === label ? null : label));
-    try { navigator.vibrate?.(15); } catch {}
-  }, []);
-
-  const startPress = useCallback((label: string) => {
-    touchMovedRef.current = false;
-    timerRef.current = setTimeout(() => {
-      if (!touchMovedRef.current) handleLongPress(label);
-    }, LONG_PRESS_MS);
-  }, [handleLongPress]);
-
-  const cancelPress = useCallback(() => {
-    if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
+    try { navigator.vibrate?.(10); } catch {}
   }, []);
 
   const handleRemoveIngredient = (label: string, ingredient: string, e: React.MouseEvent) => {
@@ -273,17 +260,16 @@ export const SolidFoodStatsPage: React.FC<SolidFoodStatsPageProps> = ({ records,
         {groups.map(g => (
           <div key={g.label}>
             <div
-              className={`bg-white dark:bg-slate-800 rounded-2xl px-5 py-4 shadow-sm border border-slate-100 dark:border-slate-700 select-none ${
+              className={`bg-white dark:bg-slate-800 rounded-2xl px-5 py-4 shadow-sm border border-slate-100 dark:border-slate-700 select-none cursor-pointer active:scale-[0.99] transition-transform duration-100 ${
                 expandedFood === g.label ? 'rounded-b-none border-b-0' : ''
               }`}
-              onTouchStart={() => startPress(g.label)}
-              onTouchMove={() => { touchMovedRef.current = true; cancelPress(); }}
-              onTouchEnd={cancelPress}
-              onContextMenu={e => { e.preventDefault(); handleLongPress(g.label); }}
+              onClick={() => toggleExpand(g.label)}
             >
               <div className="flex items-center justify-between">
                 <span className="text-base font-semibold text-slate-800 dark:text-slate-100">{g.label}</span>
-                <span className="text-xs text-slate-400 dark:text-slate-500">長按展開</span>
+                <span className="text-slate-300 dark:text-slate-600 text-sm leading-none">
+                  {expandedFood === g.label ? '∧' : '∨'}
+                </span>
               </div>
               <div className="flex items-center gap-3 mt-1.5 text-sm text-slate-500 dark:text-slate-400">
                 <span>共 <b className="text-slate-700 dark:text-slate-200">{g.count}</b> 次</span>
@@ -295,31 +281,40 @@ export const SolidFoodStatsPage: React.FC<SolidFoodStatsPageProps> = ({ records,
               </div>
 
               {/* 食材標籤區 */}
-              <div className="flex flex-wrap items-center gap-1.5 mt-2.5">
+              <div className="mt-2.5" onClick={e => e.stopPropagation()}>
                 {g.ingredients.length > 0 ? (
-                  g.ingredients.map(ingredient => (
-                    <span
-                      key={ingredient}
-                      className="inline-flex items-center gap-1 px-2.5 py-1 bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-700 rounded-full text-xs font-medium"
+                  <>
+                    <div className="flex flex-wrap gap-1.5 mb-2">
+                      {g.ingredients.map(ingredient => (
+                        <span
+                          key={ingredient}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-700 rounded-full text-xs font-medium"
+                        >
+                          {ingredient}
+                          <button
+                            className="text-green-400 dark:text-green-500 hover:text-green-600 dark:hover:text-green-300 leading-none"
+                            onClick={e => handleRemoveIngredient(g.label, ingredient, e)}
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                    <button
+                      className="text-xs text-slate-400 dark:text-slate-500 hover:text-green-600 dark:hover:text-green-400 transition-colors py-1"
+                      onClick={() => setSheetLabel(g.label)}
                     >
-                      {ingredient}
-                      <button
-                        className="text-green-400 dark:text-green-500 hover:text-green-600 dark:hover:text-green-300 leading-none"
-                        onClick={e => handleRemoveIngredient(g.label, ingredient, e)}
-                      >
-                        ×
-                      </button>
-                    </span>
-                  ))
+                      ＋ 新增食材
+                    </button>
+                  </>
                 ) : (
-                  <span className="text-xs text-slate-300 dark:text-slate-600">（未標記）</span>
+                  <button
+                    className="w-full py-2 border border-dashed border-slate-200 dark:border-slate-600 rounded-xl text-xs text-slate-400 dark:text-slate-500 hover:border-green-300 dark:hover:border-green-700 hover:text-green-600 dark:hover:text-green-400 transition-colors"
+                    onClick={() => setSheetLabel(g.label)}
+                  >
+                    ＋ 標記食材
+                  </button>
                 )}
-                <button
-                  className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-400 dark:text-slate-400 text-sm font-medium hover:bg-green-100 dark:hover:bg-green-900/40 hover:text-green-600 dark:hover:text-green-400 transition-colors"
-                  onClick={e => { e.stopPropagation(); setSheetLabel(g.label); }}
-                >
-                  ＋
-                </button>
               </div>
             </div>
 
@@ -349,7 +344,7 @@ export const SolidFoodStatsPage: React.FC<SolidFoodStatsPageProps> = ({ records,
       )}
 
       {showIngredientList && (
-        <div className="fixed inset-0 z-[60] flex items-end" onClick={() => setShowIngredientList(false)}>
+        <div className="fixed inset-0 z-[60] flex items-end bg-black/40" onClick={() => setShowIngredientList(false)}>
           <div
             className="w-full bg-white dark:bg-slate-800 rounded-t-3xl shadow-2xl p-5 pb-10 max-h-[80vh] overflow-y-auto"
             onClick={e => e.stopPropagation()}
