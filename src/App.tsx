@@ -357,6 +357,15 @@ function App() {
     showToast(`${record.subType} ${record.label} 已更新 ✅`);
   };
 
+  const handleEditPendingVaccine = (record: Record, newTimestamp: number, newNote: string, newSubType: string, newLabel: string) => {
+    const updatedRec = { ...record, timestamp: newTimestamp, note: newNote, subType: newSubType, label: newLabel, updatedAt: Date.now() };
+    updateRecord(updatedRec);
+    haptic();
+    const updated = records.map(r => r.id === record.id ? updatedRec : r);
+    fullSync(updated, setAllRecords);
+    showToast(`${record.subType} ${record.label} 預約已更新 ✅`);
+  };
+
   const handleUpdateIngredients = (label: string, newIngredients: string[]) => {
     const now = Date.now();
     const updatedRecords = records.map(r =>
@@ -686,6 +695,7 @@ function App() {
             onAddVaccine={handleAddVaccine}
             onMarkVaccineDone={handleMarkVaccineDone}
             onEditVaccine={handleEditVaccine}
+            onEditPendingVaccine={handleEditPendingVaccine}
             onDeleteVaccine={handleDeleteRecord}
             onFormulaAdd={(data) => {
               const nowTs = Date.now();

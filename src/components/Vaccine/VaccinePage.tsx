@@ -9,11 +9,12 @@ interface VaccinePageProps {
   onAddVaccine: (vaccine: Omit<Record, 'id' | 'time' | 'updatedAt'>) => void;
   onMarkDone: (record: Record, actualDate: number) => void;
   onEditVaccine: (record: Record, newEndTimestamp: number, newNote: string, newSubType: string, newLabel: string, newAmount?: number) => void;
+  onEditPendingVaccine: (record: Record, newTimestamp: number, newNote: string, newSubType: string, newLabel: string) => void;
   onDeleteVaccine: (id: string) => void;
 }
 
 export const VaccinePage: React.FC<VaccinePageProps> = ({
-  records, babyInfo, onAddVaccine, onMarkDone, onEditVaccine, onDeleteVaccine,
+  records, babyInfo, onAddVaccine, onMarkDone, onEditVaccine, onEditPendingVaccine, onDeleteVaccine,
 }) => {
   const [showAdd, setShowAdd] = useState(false);
   const [customName, setCustomName] = useState('');
@@ -29,6 +30,11 @@ export const VaccinePage: React.FC<VaccinePageProps> = ({
   const [customAmount, setCustomAmount] = useState('');
   const [confirmDoneRecord, setConfirmDoneRecord] = useState<Record | null>(null);
   const [confirmDoneDate, setConfirmDoneDate] = useState('');
+  const [pendingEditRecord, setPendingEditRecord] = useState<Record | null>(null);
+  const [pendingEditDate, setPendingEditDate] = useState('');
+  const [pendingEditNote, setPendingEditNote] = useState('');
+  const [pendingEditSubType, setPendingEditSubType] = useState('');
+  const [pendingEditLabel, setPendingEditLabel] = useState('');
 
   const vaccineRecords = useMemo(() =>
     records.filter(r => r.type === 'vaccine' && !r.isDeleted).sort((a, b) => a.timestamp - b.timestamp),
@@ -93,6 +99,22 @@ export const VaccinePage: React.FC<VaccinePageProps> = ({
     const amt = editAmount !== '' ? Number(editAmount) : undefined;
     onEditVaccine(editRecord, ts, editNote, editSubType, editLabel, amt);
     setEditRecord(null);
+  };
+
+  const handleOpenPendingEdit = (r: Record) => {
+    setPendingEditRecord(r);
+    setPendingEditDate(new Date(r.timestamp).toLocaleDateString('en-CA'));
+    setPendingEditNote(r.note || '');
+    setPendingEditSubType(r.subType || '');
+    setPendingEditLabel(r.label || '');
+  };
+
+  const handleSavePendingEdit = () => {
+    if (!pendingEditRecord) return;
+    const ts = new Date(pendingEditDate).getTime();
+    if (isNaN(ts)) return;
+    onEditPendingVaccine(pendingEditRecord, ts, pendingEditNote, pendingEditSubType, pendingEditLabel);
+    setPendingEditRecord(null);
   };
 
   const formatDate = (ts: number) => new Date(ts).toLocaleDateString('zh-TW', { year: 'numeric', month: 'numeric', day: 'numeric' });
@@ -288,6 +310,12 @@ export const VaccinePage: React.FC<VaccinePageProps> = ({
                       已打
                     </button>
                     <button
+                      onClick={() => handleOpenPendingEdit(r)}
+                      className="px-3 py-2 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-500 dark:text-indigo-400 rounded-xl text-xs active:scale-95 transition-all font-semibold"
+                    >
+                      調整預約
+                    </button>
+                    <button
                       onClick={() => onDeleteVaccine(r.id)}
                       className="px-3 py-2 bg-rose-50 dark:bg-rose-900/20 text-rose-400 dark:text-rose-400 rounded-xl text-xs active:scale-95 transition-all font-semibold"
                     >
@@ -328,6 +356,68 @@ export const VaccinePage: React.FC<VaccinePageProps> = ({
               className="w-full py-3.5 bg-emerald-600 text-white rounded-xl text-sm font-semibold active:scale-95 transition-all"
             >
               確認已打 ✅
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Pending Edit Modal */}
+      {pendingEditRecord && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center p-6" onClick={() => setPendingEditRecord(null)}>
+          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" />
+          <div className="relative bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-2xl max-w-sm w-full space-y-4" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center">
+              <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">調整預約</span>
+              <button onClick={() => setPendingEditRecord(null)} className="text-slate-400 active:scale-90">✕</button>
+            </div>
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-xs text-slate-400 uppercase tracking-widest font-semibold block mb-1.5">疫苗名稱</label>
+                  <input
+                    type="text"
+                    value={pendingEditSubType}
+                    onChange={e => setPendingEditSubType(e.target.value)}
+                    placeholder="疫苗名稱"
+                    className="w-full p-3.5 bg-slate-50 dark:bg-slate-700 dark:text-slate-200 rounded-xl outline-none text-sm border border-slate-100 dark:border-slate-600"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-slate-400 uppercase tracking-widest font-semibold block mb-1.5">劑次</label>
+                  <input
+                    type="text"
+                    value={pendingEditLabel}
+                    onChange={e => setPendingEditLabel(e.target.value)}
+                    placeholder="第1劑"
+                    className="w-full p-3.5 bg-slate-50 dark:bg-slate-700 dark:text-slate-200 rounded-xl outline-none text-sm border border-slate-100 dark:border-slate-600"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs text-slate-400 uppercase tracking-widest font-semibold block mb-1.5">預約日期</label>
+                <input
+                  type="date"
+                  value={pendingEditDate}
+                  onChange={e => setPendingEditDate(e.target.value)}
+                  className="w-full p-3.5 bg-slate-50 dark:bg-slate-700 dark:text-slate-200 rounded-xl outline-none text-sm border border-slate-100 dark:border-slate-600"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-slate-400 uppercase tracking-widest font-semibold block mb-1.5">備註</label>
+                <input
+                  type="text"
+                  value={pendingEditNote}
+                  onChange={e => setPendingEditNote(e.target.value)}
+                  placeholder="備註內容..."
+                  className="w-full p-3.5 bg-slate-50 dark:bg-slate-700 dark:text-slate-200 rounded-xl outline-none text-sm border border-slate-100 dark:border-slate-600"
+                />
+              </div>
+            </div>
+            <button
+              onClick={handleSavePendingEdit}
+              className="w-full py-3.5 bg-indigo-600 text-white rounded-xl text-sm font-semibold active:scale-95 transition-all"
+            >
+              儲存調整
             </button>
           </div>
         </div>

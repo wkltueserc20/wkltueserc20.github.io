@@ -11,6 +11,7 @@ interface RecordsPageProps {
   onAddVaccine: (data: Omit<Record, 'id' | 'time' | 'updatedAt'>) => void;
   onMarkVaccineDone: (record: Record, actualDate: number) => void;
   onEditVaccine: (record: Record, newEndTimestamp: number, newNote: string, newSubType: string, newLabel: string, newAmount?: number) => void;
+  onEditPendingVaccine: (record: Record, newTimestamp: number, newNote: string, newSubType: string, newLabel: string) => void;
   onDeleteVaccine: (id: string) => void;
   onFormulaAdd: (data: Omit<Record, 'id' | 'time' | 'updatedAt'>) => void;
   onFormulaUpdate: (record: Record) => void;
@@ -22,7 +23,7 @@ type SubTab = 'babyfood' | 'vaccine' | 'formula';
 export const RecordsPage: React.FC<RecordsPageProps> = ({
   records, babyInfo,
   onUpdateIngredients,
-  onAddVaccine, onMarkVaccineDone, onEditVaccine, onDeleteVaccine,
+  onAddVaccine, onMarkVaccineDone, onEditVaccine, onEditPendingVaccine, onDeleteVaccine,
   onFormulaAdd, onFormulaUpdate, onFormulaDelete,
 }) => {
   const [subTab, setSubTab] = useState<SubTab>('babyfood');
@@ -61,6 +62,7 @@ export const RecordsPage: React.FC<RecordsPageProps> = ({
           onAddVaccine={onAddVaccine}
           onMarkDone={onMarkVaccineDone}
           onEditVaccine={onEditVaccine}
+          onEditPendingVaccine={onEditPendingVaccine}
           onDeleteVaccine={onDeleteVaccine}
         />
       )}
