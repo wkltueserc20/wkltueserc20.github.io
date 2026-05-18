@@ -4,7 +4,9 @@ import { inferIngredients } from '../../utils/ingredientInference';
 
 interface SolidFoodStatsPageProps {
   records: Record[];
+  isConnected: boolean;
   onUpdateIngredients: (label: string, newIngredients: string[]) => void;
+  onRenameFood: (oldLabel: string, newLabel: string) => void;
 }
 
 interface FoodGroup {
@@ -149,10 +151,64 @@ const IngredientSheet: React.FC<IngredientSheetProps> = ({ label, current, sugge
   );
 };
 
-export const SolidFoodStatsPage: React.FC<SolidFoodStatsPageProps> = ({ records, onUpdateIngredients }) => {
+interface RenameSheetProps {
+  oldLabel: string;
+  groups: FoodGroup[];
+  onConfirm: (oldLabel: string, newLabel: string) => void;
+  onClose: () => void;
+}
+
+const RenameSheet: React.FC<RenameSheetProps> = ({ oldLabel, groups, onConfirm, onClose }) => {
+  const [value, setValue] = useState(oldLabel);
+
+  const conflict = value.trim() !== '' && value.trim() !== oldLabel
+    ? groups.find(g => g.label === value.trim() && g.label !== oldLabel)
+    : null;
+
+  const handleConfirm = () => {
+    const trimmed = value.trim();
+    if (!trimmed || trimmed === oldLabel) { onClose(); return; }
+    onConfirm(oldLabel, trimmed);
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-end bg-black/40" onClick={onClose}>
+      <div className="w-full bg-white dark:bg-slate-800 rounded-t-3xl shadow-2xl p-5 pb-10" onClick={e => e.stopPropagation()}>
+        <div className="w-10 h-1 bg-slate-200 dark:bg-slate-600 rounded-full mx-auto mb-4" />
+        <p className="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-4">修改名稱</p>
+        <input
+          autoFocus
+          className="w-full bg-slate-50 dark:bg-slate-700 dark:text-slate-200 rounded-xl px-4 py-3 text-sm outline-none border border-slate-100 dark:border-slate-600 mb-3"
+          value={value}
+          onChange={e => setValue(e.target.value)}
+        />
+        {conflict && (
+          <p className="text-xs text-amber-600 dark:text-amber-400 mb-3">
+            「{value.trim()}」已有 {conflict.count} 筆記錄，確認後兩組記錄將合併。
+          </p>
+        )}
+        <div className="flex gap-3">
+          <button
+            className="flex-1 py-3 bg-slate-100 dark:bg-slate-700 text-slate-500 rounded-xl text-sm"
+            onClick={onClose}
+          >取消</button>
+          <button
+            disabled={!value.trim()}
+            className="flex-[2] py-3 bg-indigo-600 text-white rounded-xl text-sm font-semibold disabled:opacity-40"
+            onClick={handleConfirm}
+          >{conflict ? '確認合併' : '確認修改'}</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export const SolidFoodStatsPage: React.FC<SolidFoodStatsPageProps> = ({ records, isConnected, onUpdateIngredients, onRenameFood }) => {
   const [expandedFood, setExpandedFood] = useState<string | null>(null);
   const [sheetLabel, setSheetLabel] = useState<string | null>(null);
   const [showIngredientList, setShowIngredientList] = useState(false);
+  const [renameTarget, setRenameTarget] = useState<string | null>(null);
 
   const groups = useMemo<FoodGroup[]>(() => {
     const map = new Map<string, FoodGroup>();
@@ -238,6 +294,9 @@ export const SolidFoodStatsPage: React.FC<SolidFoodStatsPageProps> = ({ records,
   return (
     <>
       <div className="space-y-3">
+        {isConnected && (
+          <p className="text-center text-[11px] text-slate-300 dark:text-slate-600 py-1">↓ 下拉頁面可同步最新資料</p>
+        )}
         {/* 食材多樣性摘要 */}
         <button
           className="w-full bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-800 rounded-2xl px-5 py-3.5 flex items-center gap-3 active:scale-[0.98] transition-transform duration-150"
@@ -264,8 +323,14 @@ export const SolidFoodStatsPage: React.FC<SolidFoodStatsPageProps> = ({ records,
               onClick={() => toggleExpand(g.label)}
             >
               <div className="flex items-center justify-between">
-                <span className="text-base font-semibold text-slate-800 dark:text-slate-100">{g.label}</span>
-                <span className="text-slate-300 dark:text-slate-600 text-sm leading-none">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-base font-semibold text-slate-800 dark:text-slate-100 truncate">{g.label}</span>
+                  <button
+                    className="text-slate-300 dark:text-slate-600 hover:text-indigo-500 dark:hover:text-indigo-400 text-xs flex-shrink-0 active:scale-90 transition-all"
+                    onClick={e => { e.stopPropagation(); setRenameTarget(g.label); }}
+                  >✎</button>
+                </div>
+                <span className="text-slate-300 dark:text-slate-600 text-sm leading-none flex-shrink-0 ml-2">
                   {expandedFood === g.label ? '∧' : '∨'}
                 </span>
               </div>
@@ -369,6 +434,15 @@ export const SolidFoodStatsPage: React.FC<SolidFoodStatsPageProps> = ({ records,
             </div>
           </div>
         </div>
+      )}
+
+      {renameTarget && (
+        <RenameSheet
+          oldLabel={renameTarget}
+          groups={groups}
+          onConfirm={onRenameFood}
+          onClose={() => setRenameTarget(null)}
+        />
       )}
     </>
   );

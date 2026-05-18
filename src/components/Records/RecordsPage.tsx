@@ -7,7 +7,9 @@ import { SolidFoodStatsPage } from '../SolidFood/SolidFoodStatsPage';
 interface RecordsPageProps {
   records: Record[];
   babyInfo: BabyInfo;
+  isConnected: boolean;
   onUpdateIngredients: (label: string, newIngredients: string[]) => void;
+  onRenameFood: (oldLabel: string, newLabel: string) => void;
   onAddVaccine: (data: Omit<Record, 'id' | 'time' | 'updatedAt'>) => void;
   onMarkVaccineDone: (record: Record, actualDate: number) => void;
   onEditVaccine: (record: Record, newEndTimestamp: number, newNote: string, newSubType: string, newLabel: string, newAmount?: number) => void;
@@ -22,7 +24,9 @@ type SubTab = 'babyfood' | 'vaccine' | 'formula';
 
 export const RecordsPage: React.FC<RecordsPageProps> = ({
   records, babyInfo,
+  isConnected,
   onUpdateIngredients,
+  onRenameFood,
   onAddVaccine, onMarkVaccineDone, onEditVaccine, onEditPendingVaccine, onDeleteVaccine,
   onFormulaAdd, onFormulaUpdate, onFormulaDelete,
 }) => {
@@ -52,7 +56,7 @@ export const RecordsPage: React.FC<RecordsPageProps> = ({
       </div>
 
       {subTab === 'babyfood' && (
-        <SolidFoodStatsPage records={records} onUpdateIngredients={onUpdateIngredients} />
+        <SolidFoodStatsPage records={records} onUpdateIngredients={onUpdateIngredients} isConnected={isConnected} onRenameFood={onRenameFood} />
       )}
 
       {subTab === 'vaccine' && (

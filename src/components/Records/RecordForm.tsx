@@ -113,6 +113,15 @@ export const RecordForm: React.FC<RecordFormProps> = ({
     return Array.from(set);
   }, [records]);
 
+  // 上次同名食物的食材（新增模式下用來快速套用）
+  const lastIngredients = useMemo(() => {
+    if (!foodName) return [];
+    const match = records
+      .filter(r => !r.isDeleted && r.type === 'babyfood' && r.label === foodName && (r.ingredients?.length ?? 0) > 0)
+      .sort((a, b) => b.timestamp - a.timestamp)[0];
+    return match?.ingredients ?? [];
+  }, [records, foodName]);
+
   // 自動推斷 (foodName 變化時更新)
   const inferred = useMemo(() => inferIngredients(foodName), [foodName]);
 
@@ -280,6 +289,19 @@ export const RecordForm: React.FC<RecordFormProps> = ({
                         <button type="button" className="text-emerald-400 hover:text-emerald-600 leading-none" onClick={() => setFoodIngredients(prev => prev.filter(x => x !== i))}>×</button>
                       </span>
                     ))}
+                  </div>
+                )}
+
+                {/* 上次食材快速套用 */}
+                {!isEditing && lastIngredients.length > 0 && foodIngredients.length === 0 && (
+                  <div className="flex items-center gap-2 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 rounded-xl px-3 py-2">
+                    <span className="text-[10px] text-indigo-500 dark:text-indigo-400 flex-shrink-0">📋 上次食材</span>
+                    <span className="text-xs text-slate-500 dark:text-slate-400 flex-1 truncate">{lastIngredients.join('・')}</span>
+                    <button
+                      type="button"
+                      className="text-xs bg-indigo-500 text-white rounded-lg px-2.5 py-1 font-medium flex-shrink-0"
+                      onClick={() => setFoodIngredients(lastIngredients)}
+                    >套用</button>
                   </div>
                 )}
 

@@ -379,6 +379,21 @@ function App() {
     fullSync(updatedRecords, setAllRecords);
   };
 
+  const handleRenameFood = (oldLabel: string, newLabel: string) => {
+    if (oldLabel === newLabel) return;
+    const now = Date.now();
+    const updatedRecords = records.map(r =>
+      r.type === 'babyfood' && !r.isDeleted && r.label === oldLabel
+        ? { ...r, label: newLabel, updatedAt: now }
+        : r
+    );
+    updatedRecords
+      .filter(r => r.type === 'babyfood' && !r.isDeleted && r.label === newLabel)
+      .forEach(r => updateRecord(r));
+    fullSync(updatedRecords, setAllRecords);
+    showToast('名稱已更新 ✅');
+  };
+
   const handlePullRefresh = useCallback(() => {
     if (isPulling || !isConnected) return;
     setIsPulling(true);
@@ -691,7 +706,9 @@ function App() {
           <RecordsPage
             records={records}
             babyInfo={babyInfo}
+            isConnected={isConnected}
             onUpdateIngredients={handleUpdateIngredients}
+            onRenameFood={handleRenameFood}
             onAddVaccine={handleAddVaccine}
             onMarkVaccineDone={handleMarkVaccineDone}
             onEditVaccine={handleEditVaccine}
