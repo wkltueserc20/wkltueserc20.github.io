@@ -22,7 +22,7 @@ export const useSync = (babyInfo: BabyInfo | null, showToast: (msg: string) => v
   const isConnected = !!(babyInfo?.syncUrl && babyInfo?.syncSecret);
 
   const forceFullSync = useCallback(async (
-    localRecords: BabyRecord[],
+    _localRecords: BabyRecord[],
     onSyncComplete: (merged: BabyRecord[]) => void,
   ) => {
     const now = Date.now();
