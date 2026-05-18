@@ -21,13 +21,17 @@ export const useSync = (babyInfo: BabyInfo | null, showToast: (msg: string) => v
 
   const isConnected = !!(babyInfo?.syncUrl && babyInfo?.syncSecret);
 
-  const forceFullSync = useCallback((
+  const forceFullSync = useCallback(async (
     localRecords: BabyRecord[],
     onSyncComplete: (merged: BabyRecord[]) => void,
   ) => {
+    const now = Date.now();
+    const allLocal = await db.records.toArray();
+    const bumped = allLocal.map(r => ({ ...r, updatedAt: now }));
+    await db.records.bulkPut(bumped);
     lastSyncAtRef.current = 0;
     localStorage.setItem('baby-last-sync-at', '0');
-    fullSync(localRecords, onSyncComplete);
+    fullSync(bumped, onSyncComplete);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
