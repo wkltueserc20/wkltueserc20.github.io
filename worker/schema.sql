@@ -13,7 +13,8 @@ CREATE TABLE IF NOT EXISTS records (
   is_deleted  INTEGER DEFAULT 0,
   device_name TEXT DEFAULT '',
   sub_type    TEXT DEFAULT '',
-  label       TEXT DEFAULT ''
+  label       TEXT DEFAULT '',
+  ingredients TEXT DEFAULT '[]'
 );
 
 CREATE INDEX IF NOT EXISTS idx_records_updated_at ON records(updated_at);

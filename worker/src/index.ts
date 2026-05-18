@@ -25,6 +25,7 @@ interface ClientRecord {
   deviceName?: string;
   subType?: string;
   label?: string;
+  ingredients?: string[];
 }
 
 interface DbRow {
@@ -43,6 +44,7 @@ interface DbRow {
   device_name: string;
   sub_type: string;
   label: string;
+  ingredients: string;
 }
 
 const CORS_HEADERS = {
@@ -59,6 +61,8 @@ function jsonResponse(data: unknown, status = 200): Response {
 }
 
 function rowToClient(row: DbRow): ClientRecord {
+  let ingredients: string[] = [];
+  try { ingredients = JSON.parse(row.ingredients || '[]'); } catch { ingredients = []; }
   return {
     id: row.id,
     type: row.type,
@@ -75,6 +79,7 @@ function rowToClient(row: DbRow): ClientRecord {
     deviceName: row.device_name || undefined,
     subType: row.sub_type || undefined,
     label: row.label || undefined,
+    ingredients: ingredients.length > 0 ? ingredients : undefined,
   };
 }
 
@@ -181,8 +186,8 @@ async function handleSync(request: Request, env: Env): Promise<Response> {
       const batch = changes.slice(i, i + batchSize);
       const stmts = batch.map((r) => {
         return env.DB.prepare(
-          `INSERT INTO records (id, type, milk_type, time, timestamp, end_ts, amount, weight, height, note, updated_at, is_deleted, device_name, sub_type, label)
-           VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)
+          `INSERT INTO records (id, type, milk_type, time, timestamp, end_ts, amount, weight, height, note, updated_at, is_deleted, device_name, sub_type, label, ingredients)
+           VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)
            ON CONFLICT(id) DO UPDATE SET
              type = CASE WHEN ?11 > records.updated_at THEN ?2 ELSE records.type END,
              milk_type = CASE WHEN ?11 > records.updated_at THEN ?3 ELSE records.milk_type END,
@@ -197,7 +202,8 @@ async function handleSync(request: Request, env: Env): Promise<Response> {
              is_deleted = CASE WHEN ?11 > records.updated_at THEN ?12 ELSE records.is_deleted END,
              device_name = CASE WHEN ?11 > records.updated_at THEN ?13 ELSE records.device_name END,
              sub_type = CASE WHEN ?11 > records.updated_at THEN ?14 ELSE records.sub_type END,
-             label = CASE WHEN ?11 > records.updated_at THEN ?15 ELSE records.label END`
+             label = CASE WHEN ?11 > records.updated_at THEN ?15 ELSE records.label END,
+             ingredients = CASE WHEN ?11 > records.updated_at THEN ?16 ELSE records.ingredients END`
         ).bind(
           r.id,
           r.type,
@@ -214,6 +220,7 @@ async function handleSync(request: Request, env: Env): Promise<Response> {
           r.deviceName ?? '',
           r.subType ?? '',
           r.label ?? '',
+          JSON.stringify(r.ingredients ?? []),
         );
       });
       await env.DB.batch(stmts);
