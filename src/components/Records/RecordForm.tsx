@@ -36,7 +36,7 @@ export const RecordForm: React.FC<RecordFormProps> = ({
   const [recordEndTime, setRecordEndTime] = useState<string>('');
   const [foodCategory, setFoodCategory] = useState('');
   const [foodName, setFoodName] = useState('');
-  const [foodGrams, setFoodGrams] = useState(30);
+  const [foodGrams, setFoodGrams] = useState(90);
   const [foodIngredients, setFoodIngredients] = useState<string[]>([]);
   const [ingredientInput, setIngredientInput] = useState('');
   const [temperature, setTemperature] = useState(36.5);
@@ -68,7 +68,7 @@ export const RecordForm: React.FC<RecordFormProps> = ({
         if (r.type === 'babyfood') {
           setFoodName(r.label || '');
           setFoodCategory(r.subType || '');
-          setFoodGrams(r.amount ?? 30);
+          setFoodGrams(r.amount ?? 90);
           setFoodIngredients(r.ingredients ?? []);
         }
       }
@@ -101,7 +101,7 @@ export const RecordForm: React.FC<RecordFormProps> = ({
     });
     if (!isEditing) {
       setAmount(180); setNote(''); setWeight(3.5); setHeight(50); setMilkType('breast'); setType('feeding');
-      setFoodCategory(''); setFoodName(''); setFoodGrams(30); setFoodIngredients([]); setIngredientInput(''); setTemperature(36.5);
+      setFoodCategory(''); setFoodName(''); setFoodGrams(90); setFoodIngredients([]); setIngredientInput(''); setTemperature(36.5);
       setMedName(''); setMedAmount(''); setMedUnit('mg');
     }
   };

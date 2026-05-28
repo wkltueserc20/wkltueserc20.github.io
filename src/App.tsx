@@ -19,11 +19,9 @@ import { SyncStatus } from './components/Layout/SyncStatus';
 import { BottomSheet } from './components/Layout/BottomSheet';
 import { SleepBanner } from './components/Layout/SleepBanner';
 import { ConfirmDialog } from './components/Layout/ConfirmDialog';
-import { QuickRecord } from './components/Home/QuickRecord';
 import { SyncGuide } from './components/Home/SyncGuide';
 import { FeedCountdown } from './components/Home/FeedCountdown';
 import { RecordsPage } from './components/Records/RecordsPage';
-import type { MilkType } from './types';
 
 const MS_PER_DAY = 86400000;
 const MS_PER_MIN = 60000;
@@ -304,25 +302,6 @@ function App() {
       showToast('已復原 ✅');
     };
     showToast('已刪除 🗑️', undoDelete);
-  };
-
-  const handleQuickFeed = (milkType: MilkType, amount: number) => {
-    const nowTs = Date.now();
-    const newRec: Record = {
-      id: crypto.randomUUID(),
-      type: 'feeding',
-      milkType,
-      time: new Date(nowTs).toLocaleString('zh-TW'),
-      timestamp: nowTs,
-      amount,
-      updatedAt: nowTs,
-      deviceName: myDevice,
-    };
-    addRecord(newRec);
-    const updatedRecords = [newRec, ...records];
-    haptic();
-    showToast(`${milkType === 'formula' ? '配方' : '母奶'} ${amount}ml ✨`);
-    fullSync(updatedRecords, setAllRecords);
   };
 
   const handleAddVaccine = (data: Omit<Record, 'id' | 'time' | 'updatedAt'>) => {
@@ -650,8 +629,6 @@ function App() {
                 onDismiss={() => { setShowSyncGuide(false); localStorage.setItem('sync-guide-dismissed', '1'); }}
               />
             )}
-
-            <QuickRecord records={records} onQuickFeed={handleQuickFeed} onOpenMedication={() => { setIsEditing(null); setFormDefaultType('medication'); setShowForm(true); }} />
 
             <FeedCountdown records={records} feedIntervalMs={(babyInfo.feedIntervalHours || 4) * 3600000} quietHourStart={babyInfo.quietHourStart} quietHourEnd={babyInfo.quietHourEnd} quietHourDisabled={babyInfo.quietHourDisabled} />
 
