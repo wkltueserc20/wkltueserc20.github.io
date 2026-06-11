@@ -37,6 +37,9 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
+        // 不要把其他 GitHub Pages 專案的路徑導回本 App 的 index.html
+        // (本 PWA scope 為 /，Service Worker 會攔截整個網域的 navigation)
+        navigateFallbackDenylist: [/^\/RealSenseD430i_TEST\//],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
