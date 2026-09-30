@@ -27,7 +27,7 @@ export const RecordForm: React.FC<RecordFormProps> = ({
   }, [activeSleep]);
 
   const [type, setType] = useState<RecordType>(defaultType || 'feeding');
-  const [milkType, setMilkType] = useState<MilkType>('breast');
+  const [milkType, setMilkType] = useState<MilkType>('formula');
   const [amount, setAmount] = useState<number>(180);
   const [weight, setWeight] = useState<number>(3.5);
   const [height, setHeight] = useState<number>(50);
@@ -36,7 +36,7 @@ export const RecordForm: React.FC<RecordFormProps> = ({
   const [recordEndTime, setRecordEndTime] = useState<string>('');
   const [foodCategory, setFoodCategory] = useState('');
   const [foodName, setFoodName] = useState('');
-  const [foodGrams, setFoodGrams] = useState(90);
+  const [foodGrams, setFoodGrams] = useState(120);
   const [foodIngredients, setFoodIngredients] = useState<string[]>([]);
   const [ingredientInput, setIngredientInput] = useState('');
   const [temperature, setTemperature] = useState(36.5);
@@ -68,7 +68,7 @@ export const RecordForm: React.FC<RecordFormProps> = ({
         if (r.type === 'babyfood') {
           setFoodName(r.label || '');
           setFoodCategory(r.subType || '');
-          setFoodGrams(r.amount ?? 90);
+          setFoodGrams(r.amount ?? 120);
           setFoodIngredients(r.ingredients ?? []);
         }
       }
@@ -100,8 +100,8 @@ export const RecordForm: React.FC<RecordFormProps> = ({
       recordEndTime: type === 'sleep' ? recordEndTime : undefined,
     });
     if (!isEditing) {
-      setAmount(180); setNote(''); setWeight(3.5); setHeight(50); setMilkType('breast'); setType('feeding');
-      setFoodCategory(''); setFoodName(''); setFoodGrams(90); setFoodIngredients([]); setIngredientInput(''); setTemperature(36.5);
+      setAmount(180); setNote(''); setWeight(3.5); setHeight(50); setMilkType('formula'); setType('feeding');
+      setFoodCategory(''); setFoodName(''); setFoodGrams(120); setFoodIngredients([]); setIngredientInput(''); setTemperature(36.5);
       setMedName(''); setMedAmount(''); setMedUnit('mg');
     }
   };
@@ -210,7 +210,7 @@ export const RecordForm: React.FC<RecordFormProps> = ({
                 ))}
               </div>
               <div className="flex gap-2 flex-wrap">
-                {[120, 150, 180, 210, 240].map((v) => (
+                {[160, 180, 200, 220, 240].map((v) => (
                   <button key={v} type="button" onClick={() => setAmount(v)}
                     className={`flex-1 min-w-[50px] py-2.5 rounded-xl text-xs transition-all font-semibold ${
                       amount === v ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-50 dark:bg-slate-700 text-slate-400 border border-slate-100 dark:border-slate-600'

@@ -7,7 +7,7 @@ import {
   isSameDay,
   getYesterdayDateString,
   getRecordTargetTs,
-  formatTimeWithPeriod,
+  buildSleepNote,
 } from './utils/dateUtils';
 import { parseCSVLine } from './utils/csvUtils';
 import { SummaryCards } from './components/Stats/SummaryCards';
@@ -220,7 +220,7 @@ function App() {
       time: new Date(nowTs).toLocaleString('zh-TW'),
       endTimestamp: nowTs,
       amount: diffMins,
-      note: `睡覺: ${formatTimeWithPeriod(activeSleep.timestamp)} ~ ${formatTimeWithPeriod(nowTs)}`,
+      note: buildSleepNote(activeSleep.timestamp, nowTs, activeSleep.note),
       updatedAt: nowTs,
     };
     updateRecord(updatedRec);
@@ -240,12 +240,7 @@ function App() {
     if (recordData.type === 'sleep' && fEnd) {
       fAm = Math.max(0, Math.round((fEnd - ts) / MS_PER_MIN));
       fTime = new Date(fEnd).toLocaleString('zh-TW');
-      const pureNote = recordData.note.replace(/^睡覺: \d{2}:\d{2} ~ \d{2}:\d{2}( - )?/, '');
-      const timeRange = `${new Date(ts).toLocaleTimeString([], {
-        hour: '2-digit',
-        minute: '2-digit',
-      })} ~ ${new Date(fEnd).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
-      fNt = `睡覺: ${timeRange}${pureNote ? ' - ' + pureNote : ''}`;
+      fNt = buildSleepNote(ts, fEnd, recordData.note);
     }
 
     const base: Partial<Record> = {

@@ -39,3 +39,17 @@ export const formatTimeWithPeriod = (ts: number) => {
   const displayH = h > 12 ? h - 12 : h === 0 ? 12 : h;
   return `${period}${displayH}:${m < 10 ? '0' + m : m}`;
 };
+
+// 睡眠備註的時間段前綴。新增(handleFinishSleep)和編輯(handleSaveRecord)原本各拼一次
+// 字串、格式還不一樣（早上8:30 vs 08:30），所以編輯時剝不掉舊前綴，備註看起來就沒更新。
+const SLEEP_NOTE_PREFIX =
+  /^睡覺: (?:凌晨|早上|中午|下午|晚上)?\d{1,2}:\d{2} ~ (?:凌晨|早上|中午|下午|晚上)?\d{1,2}:\d{2}(?: - )?/;
+
+export const buildSleepNote = (startTs: number, endTs: number, note = '') => {
+  let pure = note;
+  // 迴圈是為了把舊 bug 疊出來的多層前綴一次清掉
+  while (SLEEP_NOTE_PREFIX.test(pure)) pure = pure.replace(SLEEP_NOTE_PREFIX, '');
+  if (pure.trim() === '睡覺中...') pure = ''; // 開始睡覺時塞的佔位字，不是使用者備註
+  const range = `${formatTimeWithPeriod(startTs)} ~ ${formatTimeWithPeriod(endTs)}`;
+  return `睡覺: ${range}${pure.trim() ? ' - ' + pure.trim() : ''}`;
+};
