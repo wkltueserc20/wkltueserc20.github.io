@@ -64,6 +64,11 @@ function App() {
   useEffect(() => {
     document.documentElement.classList.toggle('dark', darkMode);
     localStorage.setItem('dark-mode', darkMode ? '1' : '0');
+    // 深色模式是 class 驅動（不跟隨系統），所以狀態列顏色要自己同步，
+    // 兩個 theme-color meta 都寫同一值，瀏覽器挑到哪個都對
+    document.querySelectorAll('meta[name="theme-color"]').forEach((m) =>
+      m.setAttribute('content', darkMode ? '#1e293b' : '#ffffff')
+    );
   }, [darkMode]);
 
   const {
@@ -556,7 +561,7 @@ function App() {
           </div>
         </div>
       )}
-      <header className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-2xl sticky top-0 z-50 border-b border-slate-100 dark:border-slate-700 shadow-sm">
+      <header className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-2xl sticky top-0 z-50 border-b border-slate-100 dark:border-slate-700 shadow-sm pt-[env(safe-area-inset-top)]">
         <div className="max-w-md mx-auto px-6 py-6 flex justify-between items-center">
           <div className="flex items-center gap-4 text-left">
             <div className="w-16 h-16 rounded-2xl bg-indigo-50 border-4 border-white shadow-lg overflow-hidden flex-shrink-0 flex items-center justify-center active:scale-95 transition-transform">
@@ -717,7 +722,7 @@ function App() {
         </>}
       </main>
 
-      <nav aria-label="主選單" className="fixed bottom-0 w-full bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl border-t border-slate-100 dark:border-slate-700 px-6 pb-10 pt-4 z-50 shadow-[0_-10px_25px_-5px_rgba(0,0,0,0.05)]">
+      <nav aria-label="主選單" className="fixed bottom-0 w-full bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl border-t border-slate-100 dark:border-slate-700 px-6 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-4 z-50 shadow-[0_-10px_25px_-5px_rgba(0,0,0,0.05)]">
         <div className="max-w-md mx-auto flex justify-between items-center relative">
           {/* 左側 2 個 Tabs */}
           {[

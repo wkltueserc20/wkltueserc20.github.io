@@ -13,13 +13,37 @@
   color-scheme: dark;
 }
 
+html {
+  -webkit-text-size-adjust: 100%; /* 橫向時不放大字級 */
+  overscroll-behavior: none; /* 關掉 Android 下拉刷新 / iOS 整頁彈跳 */
+}
+
 body {
   margin: 0;
-  min-height: 100vh;
+  min-height: 100dvh;
   overflow-x: hidden;
   width: 100%;
   position: relative;
   -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+}
+
+/* 觸控裝置上 input 字級 <16px 會讓 iOS Safari 自動放大整頁，
+   這是原本 user-scalable=no 想解決的病根 */
+@media (pointer: coarse) {
+  input,
+  textarea,
+  select {
+    font-size: 16px;
+  }
+}
+
+button,
+a,
+[role="button"] {
+  touch-action: manipulation; /* 取消 300ms double-tap 等待 */
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 #root {
