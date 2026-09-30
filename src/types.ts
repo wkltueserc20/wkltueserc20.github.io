@@ -21,6 +21,21 @@ export interface Record {
   ingredients?: string[];
 }
 
+// RecordForm 送給 handleSaveRecord 的資料形狀（原本兩邊都是 any）
+export interface RecordFormData {
+  type: RecordType;
+  milkType?: MilkType;
+  amount?: number;
+  weight?: number;
+  height?: number;
+  subType?: string;
+  label?: string;
+  ingredients?: string[];
+  note: string;
+  recordTime: string;
+  recordEndTime?: string;
+}
+
 export interface BabyInfo {
   name: string;
   birthday: string;

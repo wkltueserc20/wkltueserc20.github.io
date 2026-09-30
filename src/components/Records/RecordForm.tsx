@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import type { Record, RecordType, MilkType } from '../../types';
+import type { Record, RecordType, MilkType, RecordFormData } from '../../types';
 import { formatLocalValue } from '../../utils/dateUtils';
 import { inferIngredients } from '../../utils/ingredientInference';
+import { initialFields } from './recordFormFields';
 
 interface RecordFormProps {
   isEditing: string | null;
   records: Record[];
-  onSave: (recordData: any) => void;
+  onSave: (recordData: RecordFormData) => void;
   onCancel: () => void;
   activeSleep: Record | null;
   onStartSleep: (time: string) => void;
@@ -19,67 +20,41 @@ interface RecordFormProps {
 export const RecordForm: React.FC<RecordFormProps> = ({
   isEditing, records, onSave, onCancel, activeSleep, onStartSleep, onFinishSleep, solidFoodLabels, medicationLabels, defaultType,
 }) => {
-  const [now, setNow] = useState(Date.now());
+  const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     if (!activeSleep) return;
     const t = setInterval(() => setNow(Date.now()), 60000);
     return () => clearInterval(t);
   }, [activeSleep]);
 
-  const [type, setType] = useState<RecordType>(defaultType || 'feeding');
-  const [milkType, setMilkType] = useState<MilkType>('formula');
-  const [amount, setAmount] = useState<number>(180);
-  const [weight, setWeight] = useState<number>(3.5);
-  const [height, setHeight] = useState<number>(50);
-  const [note, setNote] = useState<string>('');
-  const [recordTime, setRecordTime] = useState<string>('');
-  const [recordEndTime, setRecordEndTime] = useState<string>('');
-  const [foodCategory, setFoodCategory] = useState('');
-  const [foodName, setFoodName] = useState('');
-  const [foodGrams, setFoodGrams] = useState(120);
-  const [foodIngredients, setFoodIngredients] = useState<string[]>([]);
+  // 編輯中的那筆紀錄，掛載時決定初始值用
+  const editing = isEditing ? records.find((rec) => rec.id === isEditing) ?? null : null;
+  const [init] = useState(() => initialFields(editing, defaultType));
+
+  const [type, setType] = useState<RecordType>(init.type);
+  const [milkType, setMilkType] = useState<MilkType>(init.milkType);
+  const [amount, setAmount] = useState<number>(init.amount);
+  const [weight, setWeight] = useState<number>(init.weight);
+  const [height, setHeight] = useState<number>(init.height);
+  const [note, setNote] = useState<string>(init.note);
+  const [recordTime, setRecordTime] = useState<string>(init.recordTime);
+  const [recordEndTime, setRecordEndTime] = useState<string>(init.recordEndTime);
+  const [foodCategory, setFoodCategory] = useState(init.foodCategory);
+  const [foodName, setFoodName] = useState(init.foodName);
+  const [foodGrams, setFoodGrams] = useState(init.foodGrams);
+  const [foodIngredients, setFoodIngredients] = useState<string[]>(init.foodIngredients);
   const [ingredientInput, setIngredientInput] = useState('');
   const [temperature, setTemperature] = useState(36.5);
-  const [medName, setMedName] = useState('');
-  const [medAmount, setMedAmount] = useState<number | ''>('');
-  const [medUnit, setMedUnit] = useState('mg');
+  const [medName, setMedName] = useState(init.medName);
+  const [medAmount, setMedAmount] = useState<number | ''>(init.medAmount);
+  const [medUnit, setMedUnit] = useState(init.medUnit);
 
-  useEffect(() => {
-    if (isEditing) {
-      const r = records.find((rec) => rec.id === isEditing);
-      if (r) {
-        setType(r.type);
-        if (r.milkType) setMilkType(r.milkType);
-        if (r.amount) setAmount(r.amount);
-        if (r.weight) setWeight(r.weight);
-        if (r.height) setHeight(r.height);
-        if (r.note) setNote(r.note);
-        setRecordTime(formatLocalValue(new Date(r.timestamp)));
-        if (r.type === 'sleep' && r.endTimestamp) {
-          setRecordEndTime(formatLocalValue(new Date(r.endTimestamp)));
-        } else {
-          setRecordEndTime('');
-        }
-        if (r.type === 'medication') {
-          setMedName(r.label || '');
-          setMedAmount(r.amount ?? '');
-          setMedUnit(r.subType || 'mg');
-        }
-        if (r.type === 'babyfood') {
-          setFoodName(r.label || '');
-          setFoodCategory(r.subType || '');
-          setFoodGrams(r.amount ?? 120);
-          setFoodIngredients(r.ingredients ?? []);
-        }
-      }
-    } else {
-      setRecordTime(formatLocalValue(new Date()));
-    }
-  }, [isEditing, records]);
-
-  useEffect(() => {
+  // 切換類型時把時間刷成現在（新增模式）。原本放在 useEffect 裡，
+  // 但這是「使用者按了按鈕」的結果，屬於事件處理器。
+  const changeType = (next: RecordType) => {
+    setType(next);
     if (!isEditing) setRecordTime(formatLocalValue(new Date()));
-  }, [type, isEditing]);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -103,6 +78,7 @@ export const RecordForm: React.FC<RecordFormProps> = ({
       setAmount(180); setNote(''); setWeight(3.5); setHeight(50); setMilkType('formula'); setType('feeding');
       setFoodCategory(''); setFoodName(''); setFoodGrams(120); setFoodIngredients([]); setIngredientInput(''); setTemperature(36.5);
       setMedName(''); setMedAmount(''); setMedUnit('mg');
+      setRecordTime(formatLocalValue(new Date()));
     }
   };
 
@@ -152,7 +128,7 @@ export const RecordForm: React.FC<RecordFormProps> = ({
               { key: 'sleep', label: '睡眠💤' },
             ] as { key: RecordType; label: string }[]).map((t) => (
               <button
-                key={t.key} type="button" onClick={() => setType(t.key)}
+                key={t.key} type="button" onClick={() => changeType(t.key)}
                 className={`flex-1 py-3 rounded-xl text-sm transition-all font-semibold ${
                   type === t.key ? 'bg-white dark:bg-slate-600 shadow-md text-indigo-600 dark:text-indigo-400' : 'text-slate-400'
                 }`}
@@ -169,7 +145,7 @@ export const RecordForm: React.FC<RecordFormProps> = ({
               { key: 'medication', label: '用藥💊' },
             ] as { key: RecordType; label: string }[]).map((t) => (
               <button
-                key={t.key} type="button" onClick={() => setType(t.key)}
+                key={t.key} type="button" onClick={() => changeType(t.key)}
                 className={`flex-1 py-2 rounded-xl text-xs transition-all font-semibold ${
                   type === t.key ? 'bg-white dark:bg-slate-600 shadow-md text-indigo-600 dark:text-indigo-400' : 'text-slate-400'
                 }`}

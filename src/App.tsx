@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspense } from 'react';
-import type { Record, TabType, RecordType } from './types';
+import type { Record, TabType, RecordType, RecordFormData } from './types';
 import { useBabyInfo } from './hooks/useBabyInfo';
 import { useRecords } from './hooks/useRecords';
 import { useSync } from './hooks/useSync';
@@ -58,7 +58,7 @@ function App() {
   }, []);
 
   const haptic = useCallback((ms = 10) => {
-    try { navigator.vibrate?.(ms); } catch {}
+    try { navigator.vibrate?.(ms); } catch { /* 裝置不支援震動就算了 */ }
   }, []);
 
   useEffect(() => {
@@ -91,8 +91,11 @@ function App() {
     }
   }, [isConnected, babyInfo, fullSync, setAllRecords]);
 
+  // 這個 effect 只需要知道「能不能同步」，不需要 babyInfo 的內容，
+  // 抽成 boolean 才不會 babyInfo 一改就重綁 listener
+  const canAutoSync = isConnected && !!babyInfo;
   useEffect(() => {
-    if (!isConnected || !babyInfo) return;
+    if (!canAutoSync) return;
 
     const triggerSync = () => {
       fullSync(recordsRef.current, setAllRecords, { silent: true });
@@ -111,7 +114,7 @@ function App() {
       document.removeEventListener('visibilitychange', handleAutoSync);
       window.removeEventListener('online', handleOnline);
     };
-  }, [isConnected, fullSync, setAllRecords]);
+  }, [canAutoSync, fullSync, setAllRecords]);
 
   // --- Derived Data (Stats) ---
   const stats = useMemo(() => {
@@ -230,10 +233,10 @@ function App() {
     showToast('寶寶起床了 ☀️ 紀錄已存檔');
   };
 
-  const handleSaveRecord = (recordData: any) => {
+  const handleSaveRecord = (recordData: RecordFormData) => {
     const ts = new Date(recordData.recordTime).getTime();
     let fAm = recordData.amount;
-    let fEnd = recordData.recordEndTime ? new Date(recordData.recordEndTime).getTime() : undefined;
+    const fEnd = recordData.recordEndTime ? new Date(recordData.recordEndTime).getTime() : undefined;
     let fNt = recordData.note;
     let fTime = new Date(ts).toLocaleString('zh-TW');
 
@@ -771,6 +774,7 @@ function App() {
         title={isEditing ? "修改紀錄" : "新增育兒紀錄"}
       >
         <RecordForm
+          key={isEditing ?? `new-${formDefaultType ?? ''}`}
           isEditing={isEditing}
           records={records}
           onSave={handleSaveRecord}
