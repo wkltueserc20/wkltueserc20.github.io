@@ -25,6 +25,14 @@ import { RecordsPage } from './components/Records/RecordsPage';
 
 const MS_PER_DAY = 86400000;
 const MS_PER_MIN = 60000;
+const PULL_THRESHOLD = 80; // 下拉超過這個距離才觸發同步
+
+// 表單類型選擇器提供的類型，只記這幾種（疫苗/奶粉罐從別的頁面進來，不在表單裡）
+const FORM_TYPES: RecordType[] = ['feeding', 'sleep', 'babyfood', 'temperature', 'growth', 'medication'];
+const readLastType = (): RecordType | undefined => {
+  const saved = localStorage.getItem('last-record-type') as RecordType | null;
+  return saved && FORM_TYPES.includes(saved) ? saved : undefined;
+};
 
 function App() {
   // --- States & Hooks ---
@@ -46,15 +54,18 @@ function App() {
   const [isEditing, setIsEditing] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [formDefaultType, setFormDefaultType] = useState<RecordType | undefined>();
+  const [lastType, setLastType] = useState<RecordType | undefined>(readLastType);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [showSyncGuide, setShowSyncGuide] = useState(() => !localStorage.getItem('sync-guide-dismissed'));
   const [isPulling, setIsPulling] = useState(false);
+  // 下拉刷新：手指還按著時的位移，用來讓指示器跟著手走
+  const [pullDistance, setPullDistance] = useState(0);
 
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const showToast = useCallback((msg: string, undo?: () => void) => {
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     setToast({ msg, undo });
-    toastTimerRef.current = setTimeout(() => setToast(null), undo ? 5000 : 2500);
+    toastTimerRef.current = setTimeout(() => setToast(null), undo ? 8000 : 2500);
   }, []);
 
   const haptic = useCallback((ms = 10) => {
@@ -81,6 +92,7 @@ function App() {
 
   const recordsRef = useRef(records);
   const pullYRef = useRef<number | null>(null);
+  const pullHapticRef = useRef(false);
   useEffect(() => { recordsRef.current = records; }, [records]);
 
   const initialSyncRef = useRef(false);
@@ -234,6 +246,10 @@ function App() {
   };
 
   const handleSaveRecord = (recordData: RecordFormData) => {
+    if (FORM_TYPES.includes(recordData.type)) {
+      setLastType(recordData.type);
+      localStorage.setItem('last-record-type', recordData.type);
+    }
     const ts = new Date(recordData.recordTime).getTime();
     let fAm = recordData.amount;
     const fEnd = recordData.recordEndTime ? new Date(recordData.recordEndTime).getTime() : undefined;
@@ -545,7 +561,7 @@ function App() {
   return (
     <div className="min-h-screen bg-[#F8FAFC] dark:bg-slate-900 pb-32 text-slate-800 dark:text-slate-200 transition-colors duration-300">
       {toast && (
-        <div className="fixed bottom-36 left-1/2 -translate-x-1/2 z-[100] animate-in fade-in slide-in-from-bottom-4 duration-300">
+        <div role="status" className="fixed bottom-[calc(9rem+env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 z-[100] animate-in fade-in slide-in-from-bottom-4 duration-300">
           <div className="bg-slate-900/95 backdrop-blur-md text-white px-6 py-3.5 rounded-full shadow-2xl text-[11px] border border-white/10 uppercase flex items-center gap-3">
             <span>{toast.msg}</span>
             {toast.undo && (
@@ -599,20 +615,49 @@ function App() {
       <main
         className="max-w-md mx-auto px-6 pt-8 space-y-7"
         onTouchStart={(e) => {
-          pullYRef.current = e.touches[0].clientY;
+          const scrollTop = document.documentElement.scrollTop || document.body.scrollTop;
+          // 只有已經在最頂端才算下拉手勢，否則這是普通捲動
+          pullYRef.current = scrollTop <= 0 && isConnected && !isPulling ? e.touches[0].clientY : null;
+          pullHapticRef.current = false;
         }}
-        onTouchEnd={(e) => {
-          if (pullYRef.current !== null) {
-            const endY = e.changedTouches[0].clientY;
-            const scrollTop = document.documentElement.scrollTop || document.body.scrollTop;
-            if (scrollTop <= 0 && endY - pullYRef.current > 80) handlePullRefresh();
-            pullYRef.current = null;
+        onTouchMove={(e) => {
+          if (pullYRef.current === null) return;
+          const delta = e.touches[0].clientY - pullYRef.current;
+          setPullDistance(Math.max(0, delta));
+          // 跨過門檻震一下，告訴使用者「放手就會刷新」
+          if (delta > PULL_THRESHOLD && !pullHapticRef.current) {
+            pullHapticRef.current = true;
+            haptic();
           }
         }}
+        onTouchEnd={() => {
+          if (pullYRef.current !== null && pullDistance > PULL_THRESHOLD) handlePullRefresh();
+          pullYRef.current = null;
+          setPullDistance(0);
+        }}
       >
-        {isPulling && (
-          <div className="flex justify-center py-3 animate-in fade-in duration-200">
-            <div className="w-6 h-6 border-3 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
+        {(isPulling || pullDistance > 0) && (
+          <div
+            className="flex justify-center items-end overflow-hidden"
+            style={{ height: isPulling ? 44 : Math.min(pullDistance * 0.5, 56) }}
+          >
+            <div
+              className="pb-2"
+              style={{ opacity: isPulling ? 1 : Math.min(1, pullDistance / PULL_THRESHOLD) }}
+            >
+              {isPulling ? (
+                <div className="w-6 h-6 border-3 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
+              ) : (
+                <div
+                  className={`w-6 h-6 border-3 rounded-full ${
+                    pullDistance > PULL_THRESHOLD
+                      ? 'border-indigo-200 border-t-indigo-600'
+                      : 'border-slate-200 border-t-slate-400'
+                  }`}
+                  style={{ transform: `rotate(${(pullDistance / PULL_THRESHOLD) * 270}deg)` }}
+                />
+              )}
+            </div>
           </div>
         )}
         {isLoading ? (
@@ -730,19 +775,21 @@ function App() {
             <button
               key={tab.id}
               onClick={() => setCurrentTab(tab.id as TabType)}
+              aria-current={currentTab === tab.id ? 'page' : undefined}
               className={`flex-1 flex flex-col items-center gap-1 transition-all duration-500 ${
-                currentTab === tab.id ? 'text-indigo-600' : 'text-slate-300'
+                currentTab === tab.id ? 'text-indigo-600' : 'text-slate-400 dark:text-slate-500'
               }`}
             >
-              <span className={`text-xl transition-all duration-500 ${currentTab === tab.id ? '' : 'grayscale opacity-40 scale-90'}`}>{tab.icon}</span>
-              <span className={`text-[9px] transition-all duration-500 ${currentTab === tab.id ? 'opacity-100' : 'opacity-0'}`}>{tab.label}</span>
+              <span className={`text-xl transition-all duration-500 ${currentTab === tab.id ? '' : 'grayscale opacity-50 scale-90'}`}>{tab.icon}</span>
+              {/* 文字一直顯示：emoji 辨識度不夠，而且 opacity-0 的字螢幕閱讀器還是會念 */}
+              <span className={`text-[10px] transition-all duration-500 ${currentTab === tab.id ? 'font-semibold' : 'opacity-70'}`}>{tab.label}</span>
             </button>
           ))}
 
           <div className="flex justify-center -mt-10">
             <button
               aria-label="新增紀錄"
-              onClick={() => { setIsEditing(null); setFormDefaultType(undefined); setShowForm(true); }}
+              onClick={() => { setIsEditing(null); setFormDefaultType(lastType); setShowForm(true); }}
               className="w-14 h-14 bg-slate-900 dark:bg-indigo-600 text-white rounded-full flex items-center justify-center text-2xl shadow-2xl active:scale-90 transition-all border-4 border-white dark:border-slate-800"
             >
               ＋
@@ -756,12 +803,14 @@ function App() {
             <button
               key={tab.id}
               onClick={() => setCurrentTab(tab.id as TabType)}
+              aria-current={currentTab === tab.id ? 'page' : undefined}
               className={`flex-1 flex flex-col items-center gap-1 transition-all duration-500 ${
-                currentTab === tab.id ? 'text-indigo-600' : 'text-slate-300'
+                currentTab === tab.id ? 'text-indigo-600' : 'text-slate-400 dark:text-slate-500'
               }`}
             >
-              <span className={`text-xl transition-all duration-500 ${currentTab === tab.id ? '' : 'grayscale opacity-40 scale-90'}`}>{tab.icon}</span>
-              <span className={`text-[9px] transition-all duration-500 ${currentTab === tab.id ? 'opacity-100' : 'opacity-0'}`}>{tab.label}</span>
+              <span className={`text-xl transition-all duration-500 ${currentTab === tab.id ? '' : 'grayscale opacity-50 scale-90'}`}>{tab.icon}</span>
+              {/* 文字一直顯示：emoji 辨識度不夠，而且 opacity-0 的字螢幕閱讀器還是會念 */}
+              <span className={`text-[10px] transition-all duration-500 ${currentTab === tab.id ? 'font-semibold' : 'opacity-70'}`}>{tab.label}</span>
             </button>
           ))}
         </div>
@@ -781,7 +830,6 @@ function App() {
           onCancel={() => { setShowForm(false); setIsEditing(null); setFormDefaultType(undefined); }}
           activeSleep={activeSleep}
           onStartSleep={handleStartSleep}
-          onFinishSleep={handleFinishSleep}
           solidFoodLabels={solidFoodLabels}
           medicationLabels={medicationLabels}
           defaultType={formDefaultType}

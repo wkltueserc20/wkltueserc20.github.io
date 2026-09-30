@@ -55,3 +55,17 @@ a,
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
+/* 尊重系統的「減少動態效果」。framer-motion 那側由 main.tsx 的
+   MotionConfig reducedMotion="user" 收斂。
+   載入轉圈是進度指示，不在收斂範圍，否則會看起來像卡死。 */
+@media (prefers-reduced-motion: reduce) {
+  *:not(.animate-spin),
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

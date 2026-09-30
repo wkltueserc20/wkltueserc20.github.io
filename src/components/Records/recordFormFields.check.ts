@@ -44,6 +44,10 @@ assert.equal(med.medName, '退燒藥');
 assert.equal(med.medAmount, 2.5);
 assert.equal(med.medUnit, 'ml');
 
+// 編輯體溫：溫度要讀回來（舊版沒還原，直接存檔會把原值蓋成 36.5）
+assert.equal(initialFields(rec({ type: 'temperature', amount: 38.2 })).temperature, 38.2);
+assert.equal(initialFields(null).temperature, 36.5);
+
 // 非該類型的欄位不要殘留上一筆的值
 assert.equal(food.medName, '');
 assert.equal(med.foodName, '');

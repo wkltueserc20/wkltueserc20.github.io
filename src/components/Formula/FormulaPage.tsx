@@ -428,6 +428,8 @@ const CanForm: React.FC<CanFormProps> = ({
         <label className="text-xs text-slate-400 uppercase tracking-wider">金額</label>
         <input
           type="number"
+          inputMode="numeric"
+          enterKeyHint="done"
           value={amount}
           onChange={e => setAmount(e.target.value)}
           placeholder="0"
@@ -549,6 +551,8 @@ const PriceForm: React.FC<PriceFormProps> = ({ initial, brandOptions, onSave, on
         <label className="text-xs text-slate-400 uppercase tracking-wider">定價</label>
         <input
           type="number"
+          inputMode="numeric"
+          enterKeyHint="done"
           value={amount}
           onChange={e => setAmount(e.target.value)}
           placeholder="0"

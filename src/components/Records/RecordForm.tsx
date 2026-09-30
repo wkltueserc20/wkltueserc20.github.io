@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import type { Record, RecordType, MilkType, RecordFormData } from '../../types';
 import { formatLocalValue } from '../../utils/dateUtils';
 import { inferIngredients } from '../../utils/ingredientInference';
@@ -11,22 +11,14 @@ interface RecordFormProps {
   onCancel: () => void;
   activeSleep: Record | null;
   onStartSleep: (time: string) => void;
-  onFinishSleep: () => void;
   solidFoodLabels: string[];
   medicationLabels: string[];
   defaultType?: RecordType;
 }
 
 export const RecordForm: React.FC<RecordFormProps> = ({
-  isEditing, records, onSave, onCancel, activeSleep, onStartSleep, onFinishSleep, solidFoodLabels, medicationLabels, defaultType,
+  isEditing, records, onSave, onCancel, activeSleep, onStartSleep, solidFoodLabels, medicationLabels, defaultType,
 }) => {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    if (!activeSleep) return;
-    const t = setInterval(() => setNow(Date.now()), 60000);
-    return () => clearInterval(t);
-  }, [activeSleep]);
-
   // 編輯中的那筆紀錄，掛載時決定初始值用
   const editing = isEditing ? records.find((rec) => rec.id === isEditing) ?? null : null;
   const [init] = useState(() => initialFields(editing, defaultType));
@@ -44,7 +36,7 @@ export const RecordForm: React.FC<RecordFormProps> = ({
   const [foodGrams, setFoodGrams] = useState(init.foodGrams);
   const [foodIngredients, setFoodIngredients] = useState<string[]>(init.foodIngredients);
   const [ingredientInput, setIngredientInput] = useState('');
-  const [temperature, setTemperature] = useState(36.5);
+  const [temperature, setTemperature] = useState(init.temperature);
   const [medName, setMedName] = useState(init.medName);
   const [medAmount, setMedAmount] = useState<number | ''>(init.medAmount);
   const [medUnit, setMedUnit] = useState(init.medUnit);
@@ -105,21 +97,6 @@ export const RecordForm: React.FC<RecordFormProps> = ({
 
   return (
     <div className="space-y-6">
-      {activeSleep && (
-        <div className="bg-indigo-600 text-white p-6 rounded-2xl shadow-xl animate-pulse flex justify-between items-center border border-indigo-400/30">
-          <div className="space-y-1 text-left">
-            <p className="text-xs opacity-60 uppercase">正在錄睡眠中</p>
-            <p className="text-3xl font-bold">
-              {Math.max(0, Math.floor((now - activeSleep.timestamp) / 60000))}
-              <span className="text-sm ml-1 opacity-50 font-normal">分</span>
-            </p>
-          </div>
-          <button onClick={onFinishSleep} className="bg-white text-indigo-600 px-6 py-3 rounded-xl font-semibold text-sm active:scale-95 transition-all shadow-lg">
-            起來了 ☀️
-          </button>
-        </div>
-      )}
-
       <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-xl p-6 border border-slate-100 dark:border-slate-700 space-y-6 animate-in slide-in-from-bottom-6 duration-500 text-slate-800 dark:text-slate-200 overflow-hidden">
         <div className="bg-slate-50 dark:bg-slate-700 p-1.5 rounded-xl space-y-1">
           <div className="flex gap-1">
@@ -222,11 +199,11 @@ export const RecordForm: React.FC<RecordFormProps> = ({
           {type === 'growth' && (
             <div className="grid grid-cols-2 gap-4 animate-in fade-in text-left">
               <div className="relative">
-                <input type="number" step="0.01" value={weight} onChange={(e) => setWeight(Number(e.target.value))} className={`${inputCls} pr-14`} />
+                <input type="number" step="0.01" inputMode="decimal" enterKeyHint="done" value={weight} onChange={(e) => setWeight(Number(e.target.value))} className={`${inputCls} pr-14`} />
                 <span className="absolute right-4 top-4 text-xs text-slate-300 uppercase">KG</span>
               </div>
               <div className="relative">
-                <input type="number" step="1" value={height} onChange={(e) => setHeight(Number(e.target.value))} className={`${inputCls} pr-14`} />
+                <input type="number" step="1" inputMode="numeric" enterKeyHint="done" value={height} onChange={(e) => setHeight(Number(e.target.value))} className={`${inputCls} pr-14`} />
                 <span className="absolute right-4 top-4 text-xs text-slate-300 uppercase">CM</span>
               </div>
             </div>
@@ -394,6 +371,8 @@ export const RecordForm: React.FC<RecordFormProps> = ({
                     type="number"
                     step="0.1"
                     min="0"
+                    inputMode="decimal"
+                    enterKeyHint="done"
                     value={medAmount}
                     onChange={e => setMedAmount(e.target.value === '' ? '' : Number(e.target.value))}
                     placeholder="例：5"

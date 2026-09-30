@@ -198,7 +198,7 @@ export const VaccinePage: React.FC<VaccinePageProps> = ({
             className="w-full min-w-0 p-3.5 bg-slate-50 dark:bg-slate-700 dark:text-slate-200 rounded-xl outline-none text-sm border border-slate-100 dark:border-slate-600 box-border"
           />
           <input
-            type="number" value={customAmount} onChange={e => setCustomAmount(e.target.value)}
+            type="number" inputMode="numeric" enterKeyHint="done" value={customAmount} onChange={e => setCustomAmount(e.target.value)}
             placeholder="費用（選填，例：500）"
             className="w-full min-w-0 p-3.5 bg-slate-50 dark:bg-slate-700 dark:text-slate-200 rounded-xl outline-none text-sm border border-slate-100 dark:border-slate-600 box-border"
           />
@@ -468,6 +468,8 @@ export const VaccinePage: React.FC<VaccinePageProps> = ({
                 <label className="text-xs text-slate-400 uppercase tracking-widest font-semibold block mb-1.5">費用</label>
                 <input
                   type="number"
+                  inputMode="numeric"
+                  enterKeyHint="done"
                   value={editAmount}
                   onChange={e => setEditAmount(e.target.value)}
                   placeholder="選填，例：500"

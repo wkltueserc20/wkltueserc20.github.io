@@ -22,4 +22,6 @@ export const initialFields = (r: Record | null, defaultType?: RecordType) => ({
   medName: r?.type === 'medication' ? r.label || '' : '',
   medAmount: (r?.type === 'medication' ? r.amount ?? '' : '') as number | '',
   medUnit: r?.type === 'medication' ? r.subType || 'mg' : 'mg',
+  // 舊版忘了還原體溫，編輯體溫紀錄時永遠顯示 36.5，直接存檔就把原值蓋掉
+  temperature: r?.type === 'temperature' ? r.amount ?? 36.5 : 36.5,
 });
